@@ -281,9 +281,9 @@ as it's documented and thus easily repeatable.
     service/jupyter-notebook unchanged
     ingress.networking.k8s.io/jupyter-ingress created
 
-Now let's check it with kubectl get ingress
-If you don't see an address listed here, it's because you didn't enable the ingress add-on initially
-Add the ingress add-on, then either scale the deployment or delete it and allow k8s to restart it.
+Now let's check it with kubectl get ingress.
+If you don't see an address listed here, it's probably because you didn't start minikube with --addons ingress.
+You can add it now with `minikube addons enable ingress` - you may need to delete the ingress service and bring it back to take effect.
 
     $ kubectl get ingress jupyter-ingress -n jupyter
     NAME              HOSTS   ADDRESS         PORTS   AGE
@@ -341,7 +341,7 @@ What if we wanted more reliability? Simple, scale it up.
     jupyter-notebook-769b4dd598-rbc5j   1/1     Running   0          23s     172.17.0.9    m01    <none>           <none>
     jupyter-notebook-769b4dd598-zz5lj   1/1     Running   0          8m59s   172.17.0.8    m01    <none>           <none>
 
-OK, it's not that simple, because now we have four nodes, and only one ingress, so if it went down, we're still hosed. Also, the token-based authentication we used would now fail, as each instance will require its own token. You would want to set up password authentication, or alternately, have the initial GET forward you to an available instance's tokenized URL.
+OK, it's not that simple, because now we have four pods, and only one ingress, so if it went down, we're still hosed. Also, the token-based authentication we used would now fail, as each instance will require its own token. You would want to set up password authentication, or alternately, have the initial GET forward you to an available instance's tokenized URL.
 
 For now, let's get back to a single replica.
 
