@@ -78,7 +78,7 @@ You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, re
   
 
 ### <a name = "dash">Minikube Dashboard</a>
-Optional, but gives you a nice graphical look at your minikube enivornment
+Optional, but gives you a nice graphical look at your minikube environment.
 
     # Ensure you background the task so you still have use of your prompt
     $ minikube dashboard &
