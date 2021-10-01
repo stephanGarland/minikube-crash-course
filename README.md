@@ -311,8 +311,8 @@ If you don't see an address listed here, it's probably because you didn't start 
 You can add it now with `minikube addons enable ingress` - you may need to delete the ingress service and bring it back to take effect.
 
     $ kubectl get ingress jupyter-ingress -n jupyter
-    NAME              HOSTS   ADDRESS         PORTS   AGE
-    jupyter-ingress   *       192.168.64.15   80      105s
+    NAME              CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-ingress   <none>   *       192.168.64.3   80      65s
   
 The last thing we need to do is get a token - since Jupyter is running Python on your local machine, there is a security risk in that if someone gained access to it (granted, in this instance it isn't available outside of your local machine), they could import os and wreak havoc. As such, Jupyter has a token set by default; you can disable it, or use password authorization, but it's easy enough to get with some commands.
 
@@ -338,14 +338,13 @@ Nice! Now let's list the running notebooks.
 
     jovyan@jupyter-notebook-769b4dd598-x2klz:~$ jupyter notebook list
     Currently running servers:
-    http://0.0.0.0:8888/?token=e950d95d5221b596e7e3c93da7e7a651f43bcb235a92a872 :: /home/jovyan
+    http://0.0.0.0:8888/?token=28323ffc424676dbc34ffc45fb0b85150a05e0a7f92c012c :: /home/jovyan
 
 The only part of this we need is the token, so feel free to copy and paste it along with the previously identified minikube ip, or can we can do a little more CLI work. Note this is back in your host's shell. Also, yes, this could be made less kludgy with awk, but I was having issues using '=' as a field separator when passed into sh -c.
 
     $ export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     $ echo http://"$(minikube ip)?token=$JUPYTER_TOKEN"
-    http://192.168.64.15?token=e950d95d5221b596e7e3c93da7e7a651f43bcb235a92a872
-
+    http://192.168.64.3?token=28323ffc424676dbc34ffc45fb0b85150a05e0a7f92c012c
 ### <a name = "results">Results</a>
 
 Paste the echoed URL into the browser of your choice, and behold the beauty of Jupyter Notebook.
@@ -359,10 +358,10 @@ What if we wanted more reliability? Simple, scale it up.
     
     $ kubectl get pods -o wide -n jupyter
     NAME                                READY   STATUS    RESTARTS   AGE     IP            NODE   NOMINATED NODE   READINESS GATES
-    jupyter-notebook-769b4dd598-ft7b5   1/1     Running   0          23s     172.17.0.10   m01    <none>           <none>
-    jupyter-notebook-769b4dd598-jz6xq   1/1     Running   0          23s     172.17.0.4    m01    <none>           <none>
-    jupyter-notebook-769b4dd598-rbc5j   1/1     Running   0          23s     172.17.0.9    m01    <none>           <none>
-    jupyter-notebook-769b4dd598-zz5lj   1/1     Running   0          8m59s   172.17.0.8    m01    <none>           <none>
+    jupyter-notebook-574c695d7c-5kf9f   1/1     Running   0          8s    172.17.0.7   minikube   <none>           <none>
+    jupyter-notebook-574c695d7c-7msbc   1/1     Running   0          8s    172.17.0.9   minikube   <none>           <none>
+    jupyter-notebook-574c695d7c-qfhtt   1/1     Running   0          14m   172.17.0.6   minikube   <none>           <none>
+    jupyter-notebook-574c695d7c-z7f8q   1/1     Running   0          8s    172.17.0.8   minikube   <none>           <none>
 
 OK, it's not that simple, because now we have four pods, and only one ingress, so if it went down, we're still hosed. Also, the token-based authentication we used would now fail, as each instance will require its own token. You would want to set up password authentication, or alternately, have the initial GET forward you to an available instance's tokenized URL.
 
@@ -384,19 +383,18 @@ One really nifty thing is that k8s killed the newer replicas, so our original to
 
 All this seems kind of tedious, doesn't it? What if we had a nice package manager like apt or yum (just kidding, yum isn't nice) to do this? We do!
 
-Note that we're using Helm v2, so  [here are the docs for it](https://v2.helm.sh/docs/)  should you need more information.
+[Here are the docs for Helm](https://helm.sh/docs/)  should you need more information.
 
 ### <a name = "helmcreate">File Creation</a>
 
 First, we need a directory
 
     mkdir -p jupyter-minikube/templates
-    cd jupyter-minikube/templates
+    cd jupyter-minikube
 
 Note you can also use helm create $CHART_NAME to create a skeleton chart, but it may be full of cruft.
 
-WARNING: YAML is _extremely_ sensitive to whitespace. It's highly recommended that
-when writing them for yourself, you use a linter or validation service.
+WARNING: YAML is _extremely_ sensitive to whitespace. It's highly recommended that when writing them for yourself, you use a linter or validation service.
 
     # Chart must be capitalized here
     $ cat > Chart.yaml<<EOF
@@ -411,7 +409,7 @@ You could simply hard-code these in, but that is an anti-pattern.
 You can look up the options to see if you'd prefer something different.
 For example, setting pullPolicy to Always won't cache the image.
 Additionally, in production, it's rarely a good idea to use the latest tag.
-You can also change [CPU and memory limits and requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/) here.
+You can also change [CPU and memory limits and requests](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/) here.
 
     $ cat > values.yaml<<EOF
     replicaCount: 1
@@ -464,13 +462,13 @@ This is also the first use of mapping items to a sequence, with containers: - na
                 - name: http
                   containerPort: {{ .Values.service.httpPort }}
                   protocol: {{ .Values.service.protocol }}
-          resources:
-            requests:
-              memory: "{{ .Values.service.resources.requests.memory }}"
-              cpu: "{{ .Values.service.resources.requests.cpu }}"
-            limits:
-              memory: "{{ .Values.service.resources.limits.memory }}"
-    EOF
+              resources:
+                requests:
+                  memory: "{{ .Values.service.resources.requests.memory }}"
+                  cpu: "{{ .Values.service.resources.requests.cpu }}"
+                limits:
+                  memory: "{{ .Values.service.resources.limits.memory }}"
+      EOF
 
 This is the same ingress as set up before.
 
@@ -512,8 +510,9 @@ NOTES.txt (capitalization important) will be printed as plaintext at the end of 
 It does run through the pre-processor, so you can use templating language as shown here.
 Note that we're accessing the IP address via kubectl get nodes rather than minikube ip.
 While both work, kubectl get nodes is universally acceptable, rather than being limited to minikube.
+Finally, quoting `EOF` is necessary at the beginning to prevent command sustitution.
 
-    $ cat > templates/NOTES.txt<<EOF
+    $ cat > templates/NOTES.txt<<'EOF'
     {{ .Chart.Name }} installed successfully.
     
     To access your notebook, run the following commands, and go to the echoed URL:
