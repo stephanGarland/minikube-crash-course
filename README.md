@@ -259,7 +259,7 @@ That's great and all, but how do you access it?
 
 #### 404 Not Found
 
-Ruh-roh. This didn't work because the openresty (nginx essentially) service has no idea where to route our request.
+This didn't work because the openresty (nginx essentially) service has no idea where to route our request.
 
     $ kubectl describe services
     
@@ -316,33 +316,31 @@ You can add it now with `minikube addons enable ingress` - you may need to delet
   
 The last thing we need to do is get a token - since Jupyter is running Python on your local machine, there is a security risk in that if someone gained access to it (granted, in this instance it isn't available outside of your local machine), they could import os and wreak havoc. As such, Jupyter has a token set by default; you can disable it, or use password authorization, but it's easy enough to get with some commands.
 
-First, we need to get the name of our node, and we can do that with kubectl describe nodes.
-Since we've already looked at that output, let's narrow it down to the node we want.
+First, we need to get the name of our pod, and we can do that with kubectl get pods
 
-    $ kubectl describe nodes | grep jupyter-notebook
-    # Header not shown in terminal, repeated here for clarity
-    Namespace                  Name                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits
-    ---------                  ----                                          ------------  ----------  ---------------  -------------
-    jupyter                    jupyter-notebook-769b4dd598-x2klz             0 (0%)        0 (0%)      0 (0%)           0 (0%)
+    $ kubectl get pods -n jupyter
+    NAME                                READY   STATUS    RESTARTS   AGE
+    jupyter-notebook-65bb4f9f79-52k7c   1/1     Running   0          6m1s
 
-To make things easier, let's assign that node to an environment variable.
+To make things easier, let's assign that pod's name to an environment variable.
 
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+
 
 Great, now we need to get a shell into it, which we'll do with kubectl exec.
 
-    $ kubectl exec -n jupyter -it "$JUPYTER_NODE" -- /bin/sh
-    jovyan@jupyter-notebook-769b4dd598-x2klz:~$
+    $ kubectl exec -n jupyter -it "$JUPYTER_POD" -- /bin/sh
+    jovyan@jupyter-notebook-65bb4f9f79-52k7c:~$
 
 Nice! Now let's list the running notebooks.
 
-    jovyan@jupyter-notebook-769b4dd598-x2klz:~$ jupyter notebook list
+    jovyan@jupyter-notebook-65bb4f9f79-52k7c:~$ jupyter notebook list
     Currently running servers:
     http://0.0.0.0:8888/?token=28323ffc424676dbc34ffc45fb0b85150a05e0a7f92c012c :: /home/jovyan
 
 The only part of this we need is the token, so feel free to copy and paste it along with the previously identified minikube ip, or can we can do a little more CLI work. Note this is back in your host's shell. Also, yes, this could be made less kludgy with awk, but I was having issues using '=' as a field separator when passed into sh -c.
 
-    $ export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    $ export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     $ echo http://"$(minikube ip)?token=$JUPYTER_TOKEN"
     http://192.168.64.3?token=28323ffc424676dbc34ffc45fb0b85150a05e0a7f92c012c
 ### <a name = "results">Results</a>
@@ -360,7 +358,7 @@ What if we wanted more reliability? Simple, scale it up.
     NAME                                READY   STATUS    RESTARTS   AGE     IP            NODE   NOMINATED NODE   READINESS GATES
     jupyter-notebook-574c695d7c-5kf9f   1/1     Running   0          8s    172.17.0.7   minikube   <none>           <none>
     jupyter-notebook-574c695d7c-7msbc   1/1     Running   0          8s    172.17.0.9   minikube   <none>           <none>
-    jupyter-notebook-574c695d7c-qfhtt   1/1     Running   0          14m   172.17.0.6   minikube   <none>           <none>
+    jupyter-notebook-65bb4f9f79-52k7c   1/1     Running   0          14m   172.17.0.6   minikube   <none>           <none>
     jupyter-notebook-574c695d7c-z7f8q   1/1     Running   0          8s    172.17.0.8   minikube   <none>           <none>
 
 OK, it's not that simple, because now we have four pods, and only one ingress, so if it went down, we're still hosed. Also, the token-based authentication we used would now fail, as each instance will require its own token. You would want to set up password authentication, or alternately, have the initial GET forward you to an available instance's tokenized URL.
@@ -375,7 +373,7 @@ For now, let's get back to a single replica.
     jupyter-notebook-769b4dd598-ft7b5   0/1     Terminating   0          67s     172.17.0.10   m01    <none>           <none>
     jupyter-notebook-769b4dd598-jz6xq   0/1     Terminating   0          67s     172.17.0.4    m01    <none>           <none>
     jupyter-notebook-769b4dd598-rbc5j   0/1     Terminating   0          67s     172.17.0.9    m01    <none>           <none>
-    jupyter-notebook-769b4dd598-zz5lj   1/1     Running       0          9m43s   172.17.0.8    m01    <none>           <none>
+    jupyter-notebook-65bb4f9f79-52k7c   1/1     Running       0          9m43s   172.17.0.8    m01    <none>           <none>
 
 One really nifty thing is that k8s killed the newer replicas, so our original token we set is still valid.
 
@@ -435,6 +433,9 @@ You can also change [CPU and memory limits and requests](https://kubernetes.io/d
 
 Here you can see the extent of the use of our values.yaml.
 This is also the first use of mapping items to a sequence, with containers: - name.
+You'll note that some templated strings are quoted - that's to combined them with normal characters, e.g. giving `labels.chart` the value `.Chart.Name-.Chart.Version`. While Helm will accept their absence, it's not valid YAML. Technically, Helm's docs also state that it's a best practice to quote strings as well, which is done via `{{ quote .Values.foo }}`. You're welcome to try it out.
+
+The use of `metadata.namespace` means that while we don't need to pass `--namespace` into Helm to install into the correct namespace. However, it will override any that _are_ passed in. Finally, if the `--namespace` argument isn't used, Helm will use its default release namespace, resulting in the somewhat confusing mixture of having your deployment existing in Kubernetes namespace `jupyter`, but the release in Helm namespace `default`.
 
     $ cat > templates/deployment.yaml<<EOF
     apiVersion: apps/v1
@@ -464,10 +465,10 @@ This is also the first use of mapping items to a sequence, with containers: - na
                   protocol: {{ .Values.service.protocol }}
               resources:
                 requests:
-                  memory: "{{ .Values.service.resources.requests.memory }}"
-                  cpu: "{{ .Values.service.resources.requests.cpu }}"
+                  memory: {{ .Values.service.resources.requests.memory }}
+                  cpu: {{ .Values.service.resources.requests.cpu }}
                 limits:
-                  memory: "{{ .Values.service.resources.limits.memory }}"
+                  memory: {{ .Values.service.resources.limits.memory }}
     EOF
 
 This is the same ingress as set up before.
@@ -476,8 +477,8 @@ This is the same ingress as set up before.
     apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
-      namespace: {{ .Values.service.namespace }}
       name: {{ .Values.service.name }}
+      namespace: {{ .Values.service.namespace }}
     spec:
       defaultBackend:
         service:
@@ -518,8 +519,8 @@ Finally, quoting `EOF` is necessary at the beginning to prevent command sustitut
     To access your notebook, run the following commands, and go to the echoed URL:
     
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
     
     To delete this deployment, run helm uninstall -n {{ .Values.service.namespace }} {{ .Values.service.name }}
@@ -635,15 +636,15 @@ This is essentially creating the YAML files, applying values from values.yaml.
     To access your notebook, run the following commands, and go to the echoed URL:
 
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
 
     To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
 
 Looks good, let's install it!
 
-    $ helm install --namespace jupyter jupyter-notebook .
+    $ helm install jupyter-notebook .
     NAME: jupyter-notebook
     LAST DEPLOYED: Fri Oct  1 13:18:42 2021
     NAMESPACE: jupyter
@@ -656,8 +657,8 @@ Looks good, let's install it!
     To access your notebook, run the following commands, and go to the echoed URL:
 
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
 
     To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
@@ -665,8 +666,8 @@ Looks good, let's install it!
 Do as the NOTES.txt output says.
 
     $ export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
     http://192.168.64.17?token=285a269b871fc5e3d6d344da815aa059384ba2222a7be0b3
 
@@ -696,11 +697,63 @@ Installation can also be done from this tarball. Just remember you'll need to re
     To access your notebook, run the following commands, and go to the echoed URL:
 
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
 
     To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
+
+## <a name = "Namespaces">Namespaces</a>
+
+This was briefly alluded to, in that we created one and used it. So what are they? Essentially, if you think of Kubernetes as a Hypervisor (it isn't, but stay with me), then Namespaces are like Virtual Machines. Each one is independent, with its own resources, limits, security settings, etc. A common use case for them is to have a test/staging/production setup, so development work can proceed without disrupting production. Or, perhaps you want to give each team a certain amount of cluster resources - again, these can be granularly set.
+
+### <a name = "Using Namespaces">Using Namespaces</a>
+
+Let's create some more namespaces, and deploy to each. First, let's remove our existing Helm release, and the namespace we created.
+
+    $ helm uninstall -n jupyter jupyter-notebook
+    release "jupyter-notebook" deleted
+
+    $ kubectl delete ns jupyter
+    namespace "jupyter" deleted
+
+Now, let's create three jupyter namespaces. This can also be accomplished with the `--create-namespace` argument in Helm.
+
+    $ for i in {0..2}; do kubectl create ns jupyter-$i; done
+    namespace/jupyter-0 created
+    namespace/jupyter-1 created
+    namespace/jupyter-2 created
+
+And comment out the namespace reference in our templates.
+
+    $ sed -Ei 's/(^\s+)(namespace)/\1#\2/ w /dev/stdout' */*.yaml
+      #namespace: {{ .Values.service.namespace }}
+      #namespace: {{ .Values.service.namespace }}
+      #namespace: {{ .Values.service.namespace }}
+
+Then deploy to all of the namespaces.
+
+    # Using the `--create-namespace` argument from above
+    for ns in jupyter-{0..2}; do helm install --namespace "$ns" --create-namespace jupyter .; done
+
+The previous exports will work here, with the exception of getting the token - we'll have to wrap that in a loop to get all of them.
+
+    $ for ns in jupyter-{0..2}; do kubectl exec -n "$ns" -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2'; done
+    dfbeefd51ad3292cd06d8dd053b85c7522d1a32be02fe558
+    Error from server (NotFound): pods "jupyter-notebook-fb887b49d-6cmsz" not found
+    Error from server (NotFound): pods "jupyter-notebook-fb887b49d-6cmsz" not found
+
+Why did the other two fail? Let's see:
+
+    $ kubectl get events -n jupyter-1
+    LAST SEEN   TYPE      REASON              OBJECT                                  MESSAGE
+    9m13s       Warning   FailedScheduling    pod/jupyter-notebook-fb887b49d-6np57    0/1 nodes are available: 1 Insufficient cpu.
+
+Remember when we created the minikube cluster, we only allocated 2 CPUs (it's the default)? Since our deployment is requesting 1 CPU for each, and Kubernetes needs some for itself, this won't work out. But wait, we could scale the replicas way past 2! 
+
+FILL IN HERE
+
+There are at least two ways we could address this. We could scale down the CPU requests (and add a limit for good measure), or we could add resource quotas to the namespaces.
 
 ## <a name = "cleanup">Cleanup</a>
 
