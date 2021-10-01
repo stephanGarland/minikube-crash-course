@@ -1,26 +1,25 @@
 # Minikube Crash Course
 
 ## TOC
+
 1. [Discussion and Preparation](#discussion)
-	1. [Acknowledgements](#ack)
-	2. [Assumptions](#assumptions)
-	3. [Prerequisites](#prereqs)
-	4. [Minikube setup](#setup)
-	5. [Minikube dashboard](#dash)
+1. [Acknowledgements](#ack)
+2. [Assumptions](#assumptions)
+3. [Prerequisites](#prereqs)
+4. [Minikube setup](#setup)
+5. [Minikube dashboard](#dash)
 2. [Deployment](#deploy)
-	1. [File creation](#create)
-	2. [Running the cluster](#run)
-	3. [Endpoint creation](#endpoint)
-	4. [Results](#results)
-	5. [Scaling](#scaling)
+1. [File creation](#create)
+2. [Running the cluster](#run)
+3. [Endpoint creation](#endpoint)
+4. [Results](#results)
+5. [Scaling](#scaling)
 3. [Helm](#helm)
-	1. [File creation](#helmcreate)
-	2. [Helm deployment](#helmdeploy)
-	3. [Packaging](#helmpackage)
+1. [File creation](#helmcreate)
+2. [Helm deployment](#helmdeploy)
+3. [Packaging](#helmpackage)
 4. [Cleanup](#cleanup)
 5. [Final thoughts](#final)
-
-
 
 ## <a name="discussion">Discussion and Preparation</a>
 
@@ -38,15 +37,16 @@ It is also assumed that you have a basic understanding of shell commands.
 
 ### <a name = "prereqs">Prerequisites</a>
 
--   Install [Homebrew](https://brew.sh/)  (for Macs - substitute whatever package manager you need)
--   Install [Docker](https://docs.docker.com/install/)  or [VirtualBox](https://www.virtualbox.org/)  (you need a hypervisor; Docker comes with hyperkit, but either will work)
--   Install kubectl with `brew install kubectl`
--   Install minikube with  `brew install minikube`
--   Install helm v2.x with  `brew install helm@2`
--   (Optional for Mac) Install gsed from Homebrew and link it to sed
-    -   The BSD sed that Macs ship with has some quirks, like requiring an extension for in-place replacement (sed -i'$YOUR_FILE.BAK')
-    -   You can fix this by using sed -i'' to  [perform no backup](https://i.kym-cdn.com/photos/images/newsfeed/000/511/991/3a5.jpg), or by installing GNU sed and making a symbolic link for sed to gsed
--   Have >~= 20 GB of free space available for the VM minikube sets up
+* Install [Homebrew](https://brew.sh/)  (for Macs - substitute whatever package manager you need)
+* Install [Docker](https://docs.docker.com/install/)  or [VirtualBox](https://www.virtualbox.org/)  (you need a hypervisor; Docker comes with hyperkit, but either will work)
+  * Note that with the recent licensing changes to Docker Desktop, you may want to skip this, and just use the hyperkit driver (`brew install hyperkit`) with minikube.
+* Install kubectl with `brew install kubectl`
+* Install minikube with  `brew install minikube`
+* Install helm v2.x with  `brew install helm@2`
+* (Optional for Mac) Install gsed from Homebrew and link it to sed
+  * The BSD sed that Macs ship with has some quirks, like requiring an extension for in-place replacement (sed -i'$YOUR_FILE.BAK')
+  * You can fix this by using sed -i'' to  [perform no backup](https://i.kym-cdn.com/photos/images/newsfeed/000/511/991/3a5.jpg), or by installing GNU sed and making a symbolic link for sed to gsed
+* Have >~= 20 GB of free space available for the VM minikube sets up
 
 minikube bootstraps a single-node k8s cluster in a VM (it can also do on-host with Linux, but we're not going to do that here), and is a terrific way to explore and play with k8s.
 
@@ -56,8 +56,8 @@ If you'd rather just install nginx serving a webpage, as the concepts are the sa
 
 ### <a name = "setup">Minikube setup</a>
 
-You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, respectively. We're going to be exploring helm later, so we'll use --kubernetes-version=1.15.4 as later versions are currently incompatible with helm v2.
-    
+You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, respectively.
+
     # if docker
     $ minikube start --driver hyperkit --kubernetes-version=1.15.4 --addons ingress
     # elif virtualbox
@@ -65,35 +65,45 @@ You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, re
     
     # This will take ~2-3 minutes to pull images and start depending on your computer speed and internet speed.
     # Note that you don't have to specify a driver, it will default to what's available.
-    $ minikube start --kubernetes-version=1.15.4 --addons ingress
-    😄  minikube v1.8.2 on Darwin 10.15.3
-	✨  Automatically selected the hyperkit driver
-	🔥  Creating hyperkit VM (CPUs=2, Memory=4000MB, Disk=20000MB) ...
-	🐳  Preparing Kubernetes v1.15.4 on Docker 19.03.6 ...
-	🚀  Launching Kubernetes ...
-	🌟  Enabling addons: default-storageclass, ingress, storage-provisioner
-	⌛  Waiting for cluster to come online ...
-	🏄  Done! kubectl is now configured to use "minikube"
-
-  
+    $ minikube start --memory 8GB --disk-size 30GB --addons ingress
+    😄  minikube v1.22.0 on Darwin 11.6
+    ✨  Automatically selected the hyperkit driver
+    👍  Starting control plane node minikube in cluster minikube
+    🔥  Creating hyperkit VM (CPUs=2, Memory=8192MB, Disk=30720MB) ...
+    🐳  Preparing Kubernetes v1.21.2 on Docker 20.10.6 ...
+        ▪ Generating certificates and keys ...
+        ▪ Booting up control plane ...
+        ▪ Configuring RBAC rules ...
+    🔎  Verifying Kubernetes components...
+        ▪ Using image k8s.gcr.io/ingress-nginx/controller:v0.44.0
+        ▪ Using image docker.io/jettech/kube-webhook-certgen:v1.5.1
+        ▪ Using image docker.io/jettech/kube-webhook-certgen:v1.5.1
+        ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+    🔎  Verifying ingress addon...
+    🌟  Enabled addons: storage-provisioner, default-storageclass, ingress
+    🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
 
 ### <a name = "dash">Minikube Dashboard</a>
+
 Optional, but gives you a nice graphical look at your minikube environment.
 
     # Ensure you background the task so you still have use of your prompt
     $ minikube dashboard &
     🔌  Enabling dashboard ...
+        ▪ Using image kubernetesui/dashboard:v2.1.0
+        ▪ Using image kubernetesui/metrics-scraper:v1.0.4
     🤔  Verifying dashboard health ...
     🚀  Launching proxy ...
     🤔  Verifying proxy health ...
-    🎉  Opening http://127.0.0.1:53086/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-d
+    🎉  Opening http://127.0.0.1:52749/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/ in your default browser...
 
- 
 ## <a name = "deploy">Deployment</a>
+
 ### <a name = "create">File creation</a>
+
 First, let's create a namespace. While this is optional for the purposes of this simple tutorial, everything is laid out assuming we're operating in the namespace jupyter.
 
-    $ kubectl create ns jupyter
+    kubectl create ns jupyter
 Next, we need to create our YAML files describing our cluster. I'm using cat here so you can copy and paste everything into a terminal, but you're also welcome to use your favorite editor.
 
 This sets up a deployment of the minimal jupyter notebook image, with TCP port 8888 opened.
@@ -135,12 +145,11 @@ This sets up a deployment of the minimal jupyter notebook image, with TCP port 8
         targetPort: 8888
     EOF
 
-
 ### <a name = "run">Running the cluster</a>
 
 Create the cluster using kubectl apply.
 
-    $ kubectl apply -f jupyter-deployment.yaml -n jupyter
+    kubectl apply -f jupyter-deployment.yaml -n jupyter
 
 Now let's look at what we've spun up!
 
@@ -233,8 +242,6 @@ That's great and all, but how do you access it?
     $ minikube ip
     192.168.64.15
 
-  
-
 #### 404 Not Found
 
 Ruh-roh. This didn't work because the openresty (nginx essentially) service has no idea where to route our request.
@@ -254,8 +261,6 @@ Ruh-roh. This didn't work because the openresty (nginx essentially) service has 
     Endpoints:         192.168.64.15:8443
     Session Affinity:  None
     Events:            <none>
-
-  
 
 While there is an endpoint, it has no route. Let's create one. Note that we aren't specifying a host here, so it's the default backend, with all traffic being routed to jupyter-notebook.  [Read more about Ingress to learn how to set up multiple routes.](https://kubernetes.io/docs/concepts/services-networking/ingress/)
 
@@ -302,7 +307,7 @@ Since we've already looked at that output, let's narrow it down to the node we w
 
 To make things easier, let's assign that node to an environment variable.
 
-    $ export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
+    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
 
 Great, now we need to get a shell into it, which we'll do with kubectl exec.
 
@@ -328,8 +333,6 @@ Paste the echoed URL into the browser of your choice, and behold the beauty of J
 ### <a name = "scaling">Scaling</a>
 
 What if we wanted more reliability? Simple, scale it up.
-
-  
 
     $ sed -i'' 's/replicas: 1/replicas: 4/' jupyter-deployment.yaml
     $ kubectl apply -f jupyter-deployment.yaml -n jupyter
@@ -367,7 +370,8 @@ Note that we're using Helm v2, so  [here are the docs for it](https://v2.helm.sh
 
 First, we need a directory
 
-    $ mkdir -p jupyter-minikube/templates
+    mkdir -p jupyter-minikube/templates
+    cd jupyter-minikube/templates
 
 Note you can also use helm create $CHART_NAME to create a skeleton chart, but it may be full of cruft.
 
@@ -415,7 +419,7 @@ Here you can see the extent of the use of our values.yaml.
 This is also the first use of mapping items to a sequence, with containers: - name.
 
     $ cat > templates/deployment.yaml<<EOF
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: {{ .Values.service.name }}
@@ -441,24 +445,27 @@ This is also the first use of mapping items to a sequence, with containers: - na
                   containerPort: {{ .Values.service.httpPort }}
                   protocol: {{ .Values.service.protocol }}
           resources:
-            memory: "{{ .Values.service.resources.requests.memory }}"
-            cpu: "{{ .Values.service.resources.requests.cpu }}"
-          limits:
-            memory: "{{ .Values.service.resources.limits.memory }}"
+            requests:
+              memory: "{{ .Values.service.resources.requests.memory }}"
+              cpu: "{{ .Values.service.resources.requests.cpu }}"
+            limits:
+              memory: "{{ .Values.service.resources.limits.memory }}"
     EOF
 
 This is the same ingress as set up before.
 
-    $ cat > templates/ingresss.yaml<<EOF
-    apiVersion: networking.k8s.io/v1beta1
+    $ cat > templates/ingress.yaml<<EOF
+    apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
       namespace: {{ .Values.service.namespace }}
       name: {{ .Values.service.name }}
     spec:
-      backend:
-        serviceName: {{ .Values.service.name }}
-        servicePort: {{ .Values.service.httpPort }}
+      defaultBackend:
+        service:
+          name: {{ .Values.service.name }}
+          port:
+            number: {{ .Values.service.httpPort }}
     EOF
 
 And this is the same service as before, with some extra labeling.
@@ -496,28 +503,15 @@ While both work, kubectl get nodes is universally acceptable, rather than being 
     export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
     
-    To delete this deployment, run helm delete --purge {{ .Values.service.name }}
+    To delete this deployment, run helm uninstall -n {{ .Values.service.namespace }} {{ .Values.service.name }}
     EOF
 
 ### <a name = "helmdeploy">Deploying Helm Chart</a>
 
-From within the jupyter-minikube directory, init helm.
-If this errors out, you likely didn't create the minikube VM with --kubernetes-version=1.15.4
-
-    $ helm init
-    $HELM_HOME has been configured at $YOUR_PATH/.helm.
-    
-    Tiller (the Helm server-side component) has been installed into your Kubernetes Cluster.
-    
-    Please note: by default, Tiller is deployed with an insecure 'allow unauthenticated users' policy.
-    To prevent this, run `helm init` with the --tiller-tls-verify flag.
-    For more information on securing your installation see: https://docs.helm.sh/using_helm/#securing-your-helm-installation
-    Happy Helming!
-
 First, let's do a dry run to see if everything is as we expect.
 This is essentially creating the YAML files, applying values from values.yaml.
 
-    $ helm install --dry-run --debug --name jupyter-notebook .
+    $ helm install --dry-run --debug jupyter-notebook .
     [debug] Created tunnel using local port: '49452'
     
     [debug] SERVER: "127.0.0.1:49452"
@@ -617,8 +611,6 @@ This is essentially creating the YAML files, applying values from values.yaml.
         servicePort: 8888
 
 Looks good, let's install it!
-Note the addition of the namespace here, as it isn't specified in our Chart.
-In Helm v3, this is handled differently, but we're using v2.
 
     $ helm install --namespace jupyter --name jupyter-notebook .
     NAME:   jupyter-notebook
@@ -676,7 +668,7 @@ You can also package up your deployment, for easier use by others, pushing to a 
 
 Installation can also be done from this tarball. Just remember you'll need to repackage if you make any changes.
 
-    $ helm install --namespace jupyter --name jupyter-notebook ./jupyter-minikube-0.1.0.tgz
+    $ helm install --namespace jupyter jupyter-notebook ./jupyter-minikube-0.1.0.tgz
     NAME:   jupyter-notebook
     LAST DEPLOYED: Fri Mar 27 17:49:49 2020
     NAMESPACE: jupyter
@@ -715,7 +707,7 @@ Installation can also be done from this tarball. Just remember you'll need to re
 
 If you used helm, run the command given in the NOTES.txt output.
 
-    $ helm delete --purge jupyter-notebook
+    $ helm uninstall -n jupyter jupyter-notebook
     release "jupyter-notebook" deleted
 
 If you didn't use helm, run these commands.
