@@ -749,7 +749,7 @@ Why did the other two fail? Let's see:
     LAST SEEN   TYPE      REASON              OBJECT                                  MESSAGE
     9m13s       Warning   FailedScheduling    pod/jupyter-notebook-fb887b49d-6np57    0/1 nodes are available: 1 Insufficient cpu.
 
-Remember when we created the minikube cluster, we only allocated 2 CPUs (it's the default)? Since our deployment is requesting 1 CPU for each, and Kubernetes needs some for itself, this won't work out. But wait, we could scale the replicas way past 2! TBD - I'm trying to figure out why a deployment created with Helm respects allocatable resources, but one created from deploying YAML doesn't.
+Remember when we created the minikube cluster, we only allocated 2 CPUs (it's the default)? Since our deployment is requesting 1 CPU for each, and Kubernetes needs some for itself, this won't work out. But wait, we could scale the replicas way past 2! Correct, when we didn't have resource requests or limits. Kubernetes has no way of knowing how much CPU the container should or will take without them, and so it doesn't mind giving you more than you should have.
 
 There are at least two ways we could address this. We could scale down the CPU requests (and add a limit for good measure), or we could add resource quotas to the namespaces. Let's bring the requests per deployment down to 0.25, with a limit of 0.5.
 
