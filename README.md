@@ -3,23 +3,23 @@
 ## TOC
 
 1. [Discussion and Preparation](#discussion)
-1. [Acknowledgements](#ack)
-2. [Assumptions](#assumptions)
-3. [Prerequisites](#prereqs)
-4. [Minikube setup](#setup)
-5. [Minikube dashboard](#dash)
-2. [Deployment](#deploy)
-1. [File creation](#create)
-2. [Running the cluster](#run)
-3. [Endpoint creation](#endpoint)
-4. [Results](#results)
-5. [Scaling](#scaling)
-3. [Helm](#helm)
-1. [File creation](#helmcreate)
-2. [Helm deployment](#helmdeploy)
-3. [Packaging](#helmpackage)
-4. [Cleanup](#cleanup)
-5. [Final thoughts](#final)
+2. [Acknowledgements](#ack)
+3. [Assumptions](#assumptions)
+4. [Prerequisites](#prereqs)
+5. [Minikube setup](#setup)
+6. [Minikube dashboard](#dash)
+7. [Deployment](#deploy)
+8. [File creation](#create)
+9. [Running the cluster](#run)
+10. [Endpoint creation](#endpoint)
+11. [Results](#results)
+12. [Scaling](#scaling)
+13. [Helm](#helm)
+14. [File creation](#helmcreate)
+15. [Helm deployment](#helmdeploy)
+16. [Packaging](#helmpackage)
+17. [Cleanup](#cleanup)
+18. [Final thoughts](#final)
 
 ## <a name="discussion">Discussion and Preparation</a>
 
@@ -42,7 +42,7 @@ It is also assumed that you have a basic understanding of shell commands.
   * Note that with the recent licensing changes to Docker Desktop, you may want to skip this, and just use the hyperkit driver (`brew install hyperkit`) with minikube.
 * Install kubectl with `brew install kubectl`
 * Install minikube with  `brew install minikube`
-* Install helm v2.x with  `brew install helm@2`
+* Install helm with `brew install helm`
 * (Optional for Mac) Install gsed from Homebrew and link it to sed
   * The BSD sed that Macs ship with has some quirks, like requiring an extension for in-place replacement (sed -i'$YOUR_FILE.BAK')
   * You can fix this by using sed -i'' to  [perform no backup](https://i.kym-cdn.com/photos/images/newsfeed/000/511/991/3a5.jpg), or by installing GNU sed and making a symbolic link for sed to gsed
@@ -738,7 +738,7 @@ Then deploy to all of the namespaces.
 
 The previous exports will work here, with the exception of getting the token - we'll have to wrap that in a loop to get all of them.
 
-    $ for ns in jupyter-{0..2}; do kubectl exec -n "$ns" -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2'; done
+    $ for ns in jupyter-{0..2}; do kubectl exec -n "$ns" -it $(kubectl get pods -n "$ns" -o name) -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2'; done
     dfbeefd51ad3292cd06d8dd053b85c7522d1a32be02fe558
     Error from server (NotFound): pods "jupyter-notebook-fb887b49d-6cmsz" not found
     Error from server (NotFound): pods "jupyter-notebook-fb887b49d-6cmsz" not found
@@ -749,11 +749,44 @@ Why did the other two fail? Let's see:
     LAST SEEN   TYPE      REASON              OBJECT                                  MESSAGE
     9m13s       Warning   FailedScheduling    pod/jupyter-notebook-fb887b49d-6np57    0/1 nodes are available: 1 Insufficient cpu.
 
-Remember when we created the minikube cluster, we only allocated 2 CPUs (it's the default)? Since our deployment is requesting 1 CPU for each, and Kubernetes needs some for itself, this won't work out. But wait, we could scale the replicas way past 2! 
+Remember when we created the minikube cluster, we only allocated 2 CPUs (it's the default)? Since our deployment is requesting 1 CPU for each, and Kubernetes needs some for itself, this won't work out. But wait, we could scale the replicas way past 2! TBD - I'm trying to figure out why a deployment created with Helm respects allocatable resources, but one created from deploying YAML doesn't.
 
-FILL IN HERE
+There are at least two ways we could address this. We could scale down the CPU requests (and add a limit for good measure), or we could add resource quotas to the namespaces. Let's bring the requests per deployment down to 0.25, with a limit of 0.5.
 
-There are at least two ways we could address this. We could scale down the CPU requests (and add a limit for good measure), or we could add resource quotas to the namespaces.
+    # values.yaml
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "0.25"
+      limits:
+        memory: "2Gi"
+        cpu: "0.5"
+
+Now we can deploy, and will be able to get the tokens.
+
+    for ns in jupyter-{0..2}; do kubectl exec -n "$ns" -it $(kubectl get pods -n "$ns" -o name) -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2'; done
+    35085d75fb4c537a6b71811a5e5dcc438d252576353626ab
+    207db75150f2ac07073e66b18933d0adb38ebac49980f25f
+    c1456b5fd5eb5ded8fc36189f479378e9844641e87eb0b84
+
+Great, but since we used a NodePort, we only have a single external IP for our ingress.
+
+    $ for ns in jupyter-{0..2}; do kubectl get ingress -n "$ns"; done
+    NAME               CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-notebook   <none>   *       192.168.64.3   80      3m57s
+    NAME               CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-notebook   <none>   *       192.168.64.3   80      3m55s
+    NAME               CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-notebook   <none>   *       192.168.64.3   80      3m52s
+
+This is where something more extensible would come in, like a Load Balancer, or a Reverse Proxy. Typically, Pods are intended to be ephemeral, so you wouldn't necessarily want to tie a single pod to a given domain name. However, for something like this where a person would want to be able to access their saved Python projects, you would want them (and only them) to be able to access their projects.
+
+## <a name = "Persistent Volumes">Persistent Volumes</a>
+
+Speaking of epehmerality, what happens to your projects when a pod dies? They go away. Less than ideal for this setup!
+
+Kubernetes has the concept of PersistentVolumes (think a partition of a disk) and PersistentVolumeClaims (the system administrator has granted you a quota on that partition). These can be added to a Deployment, but the issue then becomes the correct pod latching onto the correct PVC when it's recreated. Here, StatefulSets make sense. They will be given a specific PVC, and will retain that even if they die and are recreated.
+
 
 ## <a name = "cleanup">Cleanup</a>
 
@@ -781,6 +814,6 @@ If you didn't use helm, run these commands.
 
 ## <a name = "final">Final Thoughts</a>
 
-There is much more to k8s than this can touch on. While this uses namespaces, it doesn't really explore them, or discuss switching between them. Additionally, all production k8s apps will be utilizing load balancing, which to my knowledge minikube doesn't support (although perhaps with an nginx or haproxy as the publicly-exposed service, one could manage). I hope this provides enough of a background to get you started, however.
+There is much more to k8s than this can touch on. Exploring Kubernetes' networking models would be highly beneficial, as would RBAC. I hope this provides enough of a background to get you started.
 
 Finally, I highly recommend the  [kubectl plugin](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/kubectl)  for oh-my-zsh if you're using zsh, or at least, making some aliases in your .bashrc/.zshrc file. The plugin makes many of these commands much shorter.
