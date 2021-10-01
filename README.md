@@ -59,9 +59,9 @@ If you'd rather just install nginx serving a webpage, as the concepts are the sa
 You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, respectively.
 
     # if docker
-    $ minikube start --driver hyperkit --kubernetes-version=1.15.4 --addons ingress
+    $ minikube start --driver hyperkit --addons ingress
     # elif virtualbox
-    $ minikube start --driver virtualbox --kubernetes-version=1.15.4 --addons ingress
+    $ minikube start --driver virtualbox --addons ingress
     
     # This will take ~2-3 minutes to pull images and start depending on your computer speed and internet speed.
     # Note that you don't have to specify a driver, it will default to what's available.
@@ -155,92 +155,107 @@ Now let's look at what we've spun up!
 
     $ kubectl describe nodes
     
-    Name:               m01
-    Roles:              master
+    Name:               minikube
+    Roles:              control-plane,master
     Labels:             beta.kubernetes.io/arch=amd64
                         beta.kubernetes.io/os=linux
                         kubernetes.io/arch=amd64
-                        kubernetes.io/hostname=m01
+                        kubernetes.io/hostname=minikube
                         kubernetes.io/os=linux
-                        minikube.k8s.io/commit=eb13446e786c9ef70cb0a9f85a633194e62396a1
+                        minikube.k8s.io/commit=a03fbcf166e6f74ef224d4a63be4277d017bb62e
                         minikube.k8s.io/name=minikube
-                        minikube.k8s.io/updated_at=2020_03_27T12_18_28_0700
-                        minikube.k8s.io/version=v1.8.2
+                        minikube.k8s.io/updated_at=2021_10_01T10_54_33_0700
+                        minikube.k8s.io/version=v1.22.0
+                        node-role.kubernetes.io/control-plane=
                         node-role.kubernetes.io/master=
+                        node.kubernetes.io/exclude-from-external-load-balancers=
     Annotations:        kubeadm.alpha.kubernetes.io/cri-socket: /var/run/dockershim.sock
                         node.alpha.kubernetes.io/ttl: 0
                         volumes.kubernetes.io/controller-managed-attach-detach: true
-    CreationTimestamp:  Fri, 27 Mar 2020 12:18:23 -0500
+    CreationTimestamp:  Fri, 01 Oct 2021 10:54:30 -0500
     Taints:             <none>
     Unschedulable:      false
+    Lease:
+      HolderIdentity:  minikube
+      AcquireTime:     <unset>
+      RenewTime:       Fri, 01 Oct 2021 11:41:09 -0500
     Conditions:
       Type             Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message
       ----             ------  -----------------                 ------------------                ------                       -------
-      MemoryPressure   False   Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletHasSufficientMemory   kubelet has sufficient memory available
-      DiskPressure     False   Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletHasNoDiskPressure     kubelet has no disk pressure
-      PIDPressure      False   Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletHasSufficientPID      kubelet has sufficient PID available
-      Ready            True    Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletReady                 kubelet is posting ready status
+      MemoryPressure   False   Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:25 -0500   KubeletHasSufficientMemory   kubelet has sufficient memory available
+      DiskPressure     False   Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:25 -0500   KubeletHasNoDiskPressure     kubelet has no disk pressure
+      PIDPressure      False   Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:25 -0500   KubeletHasSufficientPID      kubelet has sufficient PID available
+      Ready            True    Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:45 -0500   KubeletReady                 kubelet is posting ready status
     Addresses:
-      InternalIP:  192.168.64.15
-      Hostname:    m01
+      InternalIP:  192.168.64.3
+      Hostname:    minikube
     Capacity:
-     cpu:                2
-     ephemeral-storage:  16954224Ki
-     hugepages-2Mi:      0
-     memory:             3936952Ki
-     pods:               110
+      cpu:                2
+      ephemeral-storage:  27388696Ki
+      hugepages-2Mi:      0
+      memory:             8162260Ki
+      pods:               110
     Allocatable:
-     cpu:                2
-     ephemeral-storage:  16954224Ki
-     hugepages-2Mi:      0
-     memory:             3936952Ki
-     pods:               110
+      cpu:                2
+      ephemeral-storage:  27388696Ki
+      hugepages-2Mi:      0
+      memory:             8162260Ki
+      pods:               110
     System Info:
-     Machine ID:                 27a21fe8caeb4a358871f2a486b7d03f
-     System UUID:                d9c711ea-0000-0000-aec7-acde48001122
-     Boot ID:                    e77aea48-8b6f-4638-8c9f-829bcf1b2e55
-     Kernel Version:             4.19.94
-     OS Image:                   Buildroot 2019.02.9
-     Operating System:           linux
-     Architecture:               amd64
-     Container Runtime Version:  docker://19.3.6
-     Kubelet Version:            v1.15.4
-     Kube-Proxy Version:         v1.15.4
-    Non-terminated Pods:         (11 in total)
-      Namespace                  Name                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits
-      ---------                  ----                                          ------------  ----------  ---------------  -------------
-      jupyter                    jupyter-notebook-769b4dd598-x2klz             0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kube-system                coredns-5c98db65d4-92j7g                      100m (5%)     0 (0%)      70Mi (1%)        170Mi (4%)
-      kube-system                coredns-5c98db65d4-kl9kb                      100m (5%)     0 (0%)      70Mi (1%)        170Mi (4%)
-      kube-system                etcd-m01                                      0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-apiserver-m01                            250m (12%)    0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-controller-manager-m01                   200m (10%)    0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-proxy-pf4zx                              0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-scheduler-m01                            100m (5%)     0 (0%)      0 (0%)           0 (0%)
-      kube-system                storage-provisioner                           0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kubernetes-dashboard       dashboard-metrics-scraper-74c99fbfdf-czsfh    0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kubernetes-dashboard       kubernetes-dashboard-86d44f77cf-ffbdt         0 (0%)        0 (0%)      0 (0%)           0 (0%)
+      Machine ID:                 985370baef5343a4908a72808a12ff95
+      System UUID:                bcf211ec-0000-0000-a325-acde48001122
+      Boot ID:                    8d693b0c-684f-42be-9e5c-ea7875fa87f7
+      Kernel Version:             4.19.182
+      OS Image:                   Buildroot 2020.02.12
+      Operating System:           linux
+      Architecture:               amd64
+      Container Runtime Version:  docker://20.10.6
+      Kubelet Version:            v1.21.2
+      Kube-Proxy Version:         v1.21.2
+    PodCIDR:                      10.244.0.0/24
+    PodCIDRs:                     10.244.0.0/24
+    Non-terminated Pods:          (11 in total)
+      Namespace                   Name                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age
+      ---------                   ----                                          ------------  ----------  ---------------  -------------  ---
+      ingress-nginx               ingress-nginx-controller-59b45fb494-cfq8j     100m (5%)     0 (0%)      90Mi (1%)        0 (0%)         46m
+      jupyter                     jupyter-notebook-574c695d7c-qfhtt             0 (0%)        0 (0%)      0 (0%)           0 (0%)         8s
+      kube-system                 coredns-558bd4d5db-sqw2z                      100m (5%)     0 (0%)      70Mi (0%)        170Mi (2%)     46m
+      kube-system                 etcd-minikube                                 100m (5%)     0 (0%)      100Mi (1%)       0 (0%)         46m
+      kube-system                 kube-apiserver-minikube                       250m (12%)    0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 kube-controller-manager-minikube              200m (10%)    0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 kube-proxy-bz9v6                              0 (0%)        0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 kube-scheduler-minikube                       100m (5%)     0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 storage-provisioner                           0 (0%)        0 (0%)      0 (0%)           0 (0%)         46m
+      kubernetes-dashboard        dashboard-metrics-scraper-7976b667d4-lnq8h    0 (0%)        0 (0%)      0 (0%)           0 (0%)         44m
+      kubernetes-dashboard        kubernetes-dashboard-6fcdf4f6d-2v85q          0 (0%)        0 (0%)      0 (0%)           0 (0%)         44m
     Allocated resources:
       (Total limits may be over 100 percent, i.e., overcommitted.)
-      Resource  Requests    Limits
-      --------  --------    ------
-      cpu       750m (37%)  0 (0%)
-      memory    140Mi (3%)  340Mi (8%)
+      Resource           Requests    Limits
+      --------           --------    ------
+      cpu                850m (42%)  0 (0%)
+      memory             260Mi (3%)  170Mi (2%)
+      ephemeral-storage  0 (0%)      0 (0%)
+      hugepages-2Mi      0 (0%)      0 (0%)
     Events:
-      Type    Reason                   Age                    From             Message
-      ----    ------                   ----                   ----             -------
-      Normal  NodeHasSufficientMemory  7m26s (x8 over 7m26s)  kubelet, m01     Node m01 status is now: NodeHasSufficientMemory
-      Normal  NodeHasNoDiskPressure    7m26s (x7 over 7m26s)  kubelet, m01     Node m01 status is now: NodeHasNoDiskPressure
-      Normal  NodeHasSufficientPID     7m26s (x8 over 7m26s)  kubelet, m01     Node m01 status is now: NodeHasSufficientPID
-      Normal  NodeAllocatableEnforced  7m26s                  kubelet, m01     Updated Node Allocatable limit across pods
-      Normal  Starting                 7m7s                   kube-proxy, m01  Starting kube-proxy.
+      Type    Reason                   Age                From        Message
+      ----    ------                   ----               ----        -------
+      Normal  NodeHasSufficientMemory  46m (x6 over 46m)  kubelet     Node minikube status is now: NodeHasSufficientMemory
+      Normal  NodeHasNoDiskPressure    46m (x6 over 46m)  kubelet     Node minikube status is now: NodeHasNoDiskPressure
+      Normal  NodeHasSufficientPID     46m (x5 over 46m)  kubelet     Node minikube status is now: NodeHasSufficientPID
+      Normal  Starting                 46m                kubelet     Starting kubelet.
+      Normal  NodeHasSufficientMemory  46m                kubelet     Node minikube status is now: NodeHasSufficientMemory
+      Normal  NodeHasNoDiskPressure    46m                kubelet     Node minikube status is now: NodeHasNoDiskPressure
+      Normal  NodeHasSufficientPID     46m                kubelet     Node minikube status is now: NodeHasSufficientPID
+      Normal  NodeAllocatableEnforced  46m                kubelet     Updated Node Allocatable limit across pods
+      Normal  NodeReady                46m                kubelet     Node minikube status is now: NodeReady
+      Normal  Starting                 46m                kube-proxy  Starting kube-proxy.
 
 ### <a name = "endpoint">Endpoint creation</a>
 
 That's great and all, but how do you access it?
 
     $ minikube ip
-    192.168.64.15
+    192.168.64.3
 
 #### 404 Not Found
 
@@ -251,14 +266,17 @@ Ruh-roh. This didn't work because the openresty (nginx essentially) service has 
     Name:              kubernetes
     Namespace:         default
     Labels:            component=apiserver
-                       provider=kubernetes
+                      provider=kubernetes
     Annotations:       <none>
     Selector:          <none>
     Type:              ClusterIP
+    IP Family Policy:  SingleStack
+    IP Families:       IPv4
     IP:                10.96.0.1
+    IPs:               10.96.0.1
     Port:              https  443/TCP
     TargetPort:        8443/TCP
-    Endpoints:         192.168.64.15:8443
+    Endpoints:         192.168.64.3:8443
     Session Affinity:  None
     Events:            <none>
 
@@ -267,14 +285,16 @@ While there is an endpoint, it has no route. Let's create one. Note that we aren
     $ cat >> jupyter-deployment.yaml<<EOF
     
     ---
-    apiVersion: networking.k8s.io/v1beta1
+    apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
       name: jupyter-ingress
     spec:
-      backend:
-        serviceName: jupyter-notebook
-        servicePort: 8888
+      defaultBackend:
+        service:
+          name: jupyter-notebook
+          port:
+            number: 8888
     EOF
 
 While you could alter the running cluster using kubectl, we're using a declarative method here
