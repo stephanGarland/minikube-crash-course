@@ -468,7 +468,7 @@ This is also the first use of mapping items to a sequence, with containers: - na
                   cpu: "{{ .Values.service.resources.requests.cpu }}"
                 limits:
                   memory: "{{ .Values.service.resources.limits.memory }}"
-      EOF
+    EOF
 
 This is the same ingress as set up before.
 
