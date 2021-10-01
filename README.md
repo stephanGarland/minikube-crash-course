@@ -531,20 +531,18 @@ First, let's do a dry run to see if everything is as we expect.
 This is essentially creating the YAML files, applying values from values.yaml.
 
     $ helm install --dry-run --debug jupyter-notebook .
-    [debug] Created tunnel using local port: '49452'
-    
-    [debug] SERVER: "127.0.0.1:49452"
-    
-    [debug] Original chart version: ""
-    [debug] CHART PATH: $YOUR_PATH/helm/jupyter-minikube
-    
-    NAME:   jupyter-notebook
+    install.go:173: [debug] Original chart version: ""
+    install.go:190: [debug] CHART PATH: /Users/sgarland/jupyter-minikube
+
+    NAME: jupyter-notebook
+    LAST DEPLOYED: Fri Oct  1 13:17:09 2021
+    NAMESPACE: default
+    STATUS: pending-install
     REVISION: 1
-    RELEASED: Fri Mar 27 17:13:36 2020
-    CHART: jupyter-minikube-0.1.0
+    TEST SUITE: None
     USER-SUPPLIED VALUES:
     {}
-    
+
     COMPUTED VALUES:
     image:
       pullPolicy: IfNotPresent
@@ -564,10 +562,9 @@ This is essentially creating the YAML files, applying values from values.yaml.
           cpu: "1"
           memory: 1Gi
       type: NodePort
-    
+
     HOOKS:
     MANIFEST:
-    
     ---
     # Source: jupyter-minikube/templates/service.yaml
     apiVersion: v1
@@ -587,7 +584,7 @@ This is essentially creating the YAML files, applying values from values.yaml.
           targetPort: 8888
     ---
     # Source: jupyter-minikube/templates/deployment.yaml
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: jupyter-notebook
@@ -612,59 +609,58 @@ This is essentially creating the YAML files, applying values from values.yaml.
                 - name: http
                   containerPort: 8888
                   protocol: TCP
-          resources:
-            memory: "1Gi"
-            cpu: "1"
-          limits:
-            memory: "2Gi"
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "1"
+                limits:
+                  memory: "2Gi"
     ---
     # Source: jupyter-minikube/templates/ingress.yaml
-    apiVersion: networking.k8s.io/v1beta1
+    apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
       namespace: jupyter
       name: jupyter-notebook
     spec:
-      backend:
-        serviceName: jupyter-notebook
-        servicePort: 8888
+      defaultBackend:
+        service:
+          name: jupyter-notebook
+          port:
+            number: 8888
 
-Looks good, let's install it!
-
-    $ helm install --namespace jupyter --name jupyter-notebook .
-    NAME:   jupyter-notebook
-    LAST DEPLOYED: Fri Mar 27 17:16:39 2020
-    NAMESPACE: jupyter
-    STATUS: DEPLOYED
-    
-    RESOURCES:
-    ==> v1/Service
-    NAME              AGE
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Deployment
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Ingress
-    jupyter-notebook  0s
-    
-    ==> v1/Pod(related)
-    
-    NAME                               READY  STATUS             RESTARTS  AGE
-    jupyter-notebook-6dcb864c6c-65cpp  0/1    ContainerCreating  0         0s
-    
-    
     NOTES:
     jupyter-minikube installed successfully.
-    
+
     To access your notebook, run the following commands, and go to the echoed URL:
-    
-    export JUPYTER_IP=$(k get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
+
+    export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
     export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
     export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
-    
-    To delete this deployment, run helm delete --purge jupyter-notebook
+
+    To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
+
+Looks good, let's install it!
+
+    $ helm install --namespace jupyter jupyter-notebook .
+    NAME: jupyter-notebook
+    LAST DEPLOYED: Fri Oct  1 13:18:42 2021
+    NAMESPACE: jupyter
+    STATUS: deployed
+    REVISION: 1
+    TEST SUITE: None
+    NOTES:
+    jupyter-minikube installed successfully.
+
+    To access your notebook, run the following commands, and go to the echoed URL:
+
+    export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
+    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
+
+    To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
 
 Do as the NOTES.txt output says.
 
@@ -683,44 +679,28 @@ Recall that you need to have specified ingress as an argument to minikube.
 You can also package up your deployment, for easier use by others, pushing to a repo, etc.
 
     $ helm package .
-    Successfully packaged chart and saved it to: $YOUR_PATH/jupyter-minikube/jupyter-minikube-0.1.0.tgz
+    Successfully packaged chart and saved it to: /Users/sgarland/jupyter-minikube/jupyter-minikube-0.1.0.tgz
 
 Installation can also be done from this tarball. Just remember you'll need to repackage if you make any changes.
 
     $ helm install --namespace jupyter jupyter-notebook ./jupyter-minikube-0.1.0.tgz
-    NAME:   jupyter-notebook
-    LAST DEPLOYED: Fri Mar 27 17:49:49 2020
+    NAME: jupyter-notebook
+    LAST DEPLOYED: Fri Oct  1 13:20:09 2021
     NAMESPACE: jupyter
-    STATUS: DEPLOYED
-    
-    RESOURCES:
-    ==> v1/Service
-    NAME              AGE
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Deployment
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Ingress
-    jupyter-notebook  0s
-    
-    ==> v1/Pod(related)
-    
-    NAME                               READY  STATUS             RESTARTS  AGE
-    jupyter-notebook-6dcb864c6c-6xgw6  0/1    ContainerCreating  0         0s
-    
-    
+    STATUS: deployed
+    REVISION: 1
+    TEST SUITE: None
     NOTES:
     jupyter-minikube installed successfully.
-    
+
     To access your notebook, run the following commands, and go to the echoed URL:
-    
+
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
     export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
     export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
-    
-    To delete this deployment, run helm delete --purge jupyter-notebook 
+
+    To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
 
 ## <a name = "cleanup">Cleanup</a>
 
