@@ -511,7 +511,7 @@ NOTES.txt (capitalization important) will be printed as plaintext at the end of 
 It does run through the pre-processor, so you can use templating language as shown here.
 Note that we're accessing the IP address via kubectl get nodes rather than minikube ip.
 While both work, kubectl get nodes is universally acceptable, rather than being limited to minikube.
-Finally, quoting `EOF` is necessary at the beginning to prevent command sustitution.
+Finally, quoting `EOF` is necessary at the beginning to prevent command substitution.
 
     $ cat > templates/NOTES.txt<<'EOF'
     {{ .Chart.Name }} installed successfully.
@@ -783,7 +783,7 @@ This is where something more extensible would come in, like a Load Balancer, or 
 
 ## <a name = "Persistent Volumes">Persistent Volumes</a>
 
-Speaking of epehmerality, what happens to your projects when a pod dies? They go away. Less than ideal for this setup!
+Speaking of ephemerality, what happens to your projects when a pod dies? They go away. Less than ideal for this setup!
 
 Kubernetes has the concept of PersistentVolumes (think a partition of a disk) and PersistentVolumeClaims (the system administrator has granted you a quota on that partition). These can be added to a Deployment, but the issue then becomes the correct pod latching onto the correct PVC when it's recreated. Here, StatefulSets make sense. They will be given a specific PVC, and will retain that even if they die and are recreated.
 
