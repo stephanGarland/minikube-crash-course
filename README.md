@@ -1,26 +1,25 @@
 # Minikube Crash Course
 
 ## TOC
+
 1. [Discussion and Preparation](#discussion)
-	1. [Acknowledgements](#ack)
-	2. [Assumptions](#assumptions)
-	3. [Prerequisites](#prereqs)
-	4. [Minikube setup](#setup)
-	5. [Minikube dashboard](#dash)
-2. [Deployment](#deploy)
-	1. [File creation](#create)
-	2. [Running the cluster](#run)
-	3. [Endpoint creation](#endpoint)
-	4. [Results](#results)
-	5. [Scaling](#scaling)
-3. [Helm](#helm)
-	1. [File creation](#helmcreate)
-	2. [Helm deployment](#helmdeploy)
-	3. [Packaging](#helmpackage)
-4. [Cleanup](#cleanup)
-5. [Final thoughts](#final)
-
-
+2. [Acknowledgements](#ack)
+3. [Assumptions](#assumptions)
+4. [Prerequisites](#prereqs)
+5. [Minikube setup](#setup)
+6. [Minikube dashboard](#dash)
+7. [Deployment](#deploy)
+8. [File creation](#create)
+9. [Running the cluster](#run)
+10. [Endpoint creation](#endpoint)
+11. [Results](#results)
+12. [Scaling](#scaling)
+13. [Helm](#helm)
+14. [File creation](#helmcreate)
+15. [Helm deployment](#helmdeploy)
+16. [Packaging](#helmpackage)
+17. [Cleanup](#cleanup)
+18. [Final thoughts](#final)
 
 ## <a name="discussion">Discussion and Preparation</a>
 
@@ -38,15 +37,16 @@ It is also assumed that you have a basic understanding of shell commands.
 
 ### <a name = "prereqs">Prerequisites</a>
 
--   Install [Homebrew](https://brew.sh/)  (for Macs - substitute whatever package manager you need)
--   Install [Docker](https://docs.docker.com/install/)  or [VirtualBox](https://www.virtualbox.org/)  (you need a hypervisor; Docker comes with hyperkit, but either will work)
--   Install kubectl with `brew install kubectl`
--   Install minikube with  `brew install minikube`
--   Install helm v2.x with  `brew install helm@2`
--   (Optional for Mac) Install gsed from Homebrew and link it to sed
-    -   The BSD sed that Macs ship with has some quirks, like requiring an extension for in-place replacement (sed -i'$YOUR_FILE.BAK')
-    -   You can fix this by using sed -i'' to  [perform no backup](https://i.kym-cdn.com/photos/images/newsfeed/000/511/991/3a5.jpg), or by installing GNU sed and making a symbolic link for sed to gsed
--   Have >~= 20 GB of free space available for the VM minikube sets up
+* Install [Homebrew](https://brew.sh/)  (for Macs - substitute whatever package manager you need)
+* Install [Docker](https://docs.docker.com/install/)  or [VirtualBox](https://www.virtualbox.org/)  (you need a hypervisor; Docker comes with hyperkit, but either will work)
+  * Note that with the recent licensing changes to Docker Desktop, you may want to skip this, and just use the hyperkit driver (`brew install hyperkit`) with minikube.
+* Install kubectl with `brew install kubectl`
+* Install minikube with  `brew install minikube`
+* Install helm with `brew install helm`
+* (Optional for Mac) Install gsed from Homebrew and link it to sed
+  * The BSD sed that Macs ship with has some quirks, like requiring an extension for in-place replacement (sed -i'$YOUR_FILE.BAK')
+  * You can fix this by using sed -i'' to  [perform no backup](https://i.kym-cdn.com/photos/images/newsfeed/000/511/991/3a5.jpg), or by installing GNU sed and making a symbolic link for sed to gsed
+* Have >~= 20 GB of free space available for the VM minikube sets up
 
 minikube bootstraps a single-node k8s cluster in a VM (it can also do on-host with Linux, but we're not going to do that here), and is a terrific way to explore and play with k8s.
 
@@ -56,44 +56,54 @@ If you'd rather just install nginx serving a webpage, as the concepts are the sa
 
 ### <a name = "setup">Minikube setup</a>
 
-You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, respectively. We're going to be exploring helm later, so we'll use --kubernetes-version=1.15.4 as later versions are currently incompatible with helm v2.
-    
+You can use --memory and --disk-size as desired; defaults are 4 GB and 20 GB, respectively.
+
     # if docker
-    $ minikube start --driver hyperkit --kubernetes-version=1.15.4 --addons ingress
+    $ minikube start --driver hyperkit --addons ingress
     # elif virtualbox
-    $ minikube start --driver virtualbox --kubernetes-version=1.15.4 --addons ingress
+    $ minikube start --driver virtualbox --addons ingress
     
     # This will take ~2-3 minutes to pull images and start depending on your computer speed and internet speed.
     # Note that you don't have to specify a driver, it will default to what's available.
-    $ minikube start --kubernetes-version=1.15.4 --addons ingress
-    😄  minikube v1.8.2 on Darwin 10.15.3
-	✨  Automatically selected the hyperkit driver
-	🔥  Creating hyperkit VM (CPUs=2, Memory=4000MB, Disk=20000MB) ...
-	🐳  Preparing Kubernetes v1.15.4 on Docker 19.03.6 ...
-	🚀  Launching Kubernetes ...
-	🌟  Enabling addons: default-storageclass, ingress, storage-provisioner
-	⌛  Waiting for cluster to come online ...
-	🏄  Done! kubectl is now configured to use "minikube"
-
-  
+    $ minikube start --memory 8GB --disk-size 30GB --addons ingress
+    😄  minikube v1.22.0 on Darwin 11.6
+    ✨  Automatically selected the hyperkit driver
+    👍  Starting control plane node minikube in cluster minikube
+    🔥  Creating hyperkit VM (CPUs=2, Memory=8192MB, Disk=30720MB) ...
+    🐳  Preparing Kubernetes v1.21.2 on Docker 20.10.6 ...
+        ▪ Generating certificates and keys ...
+        ▪ Booting up control plane ...
+        ▪ Configuring RBAC rules ...
+    🔎  Verifying Kubernetes components...
+        ▪ Using image k8s.gcr.io/ingress-nginx/controller:v0.44.0
+        ▪ Using image docker.io/jettech/kube-webhook-certgen:v1.5.1
+        ▪ Using image docker.io/jettech/kube-webhook-certgen:v1.5.1
+        ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+    🔎  Verifying ingress addon...
+    🌟  Enabled addons: storage-provisioner, default-storageclass, ingress
+    🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
 
 ### <a name = "dash">Minikube Dashboard</a>
+
 Optional, but gives you a nice graphical look at your minikube environment.
 
     # Ensure you background the task so you still have use of your prompt
     $ minikube dashboard &
     🔌  Enabling dashboard ...
+        ▪ Using image kubernetesui/dashboard:v2.1.0
+        ▪ Using image kubernetesui/metrics-scraper:v1.0.4
     🤔  Verifying dashboard health ...
     🚀  Launching proxy ...
     🤔  Verifying proxy health ...
-    🎉  Opening http://127.0.0.1:53086/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-d
+    🎉  Opening http://127.0.0.1:52749/api/v1/namespaces/kubernetes-dashboard/services/http:kubernetes-dashboard:/proxy/ in your default browser...
 
- 
 ## <a name = "deploy">Deployment</a>
+
 ### <a name = "create">File creation</a>
+
 First, let's create a namespace. While this is optional for the purposes of this simple tutorial, everything is laid out assuming we're operating in the namespace jupyter.
 
-    $ kubectl create ns jupyter
+    kubectl create ns jupyter
 Next, we need to create our YAML files describing our cluster. I'm using cat here so you can copy and paste everything into a terminal, but you're also welcome to use your favorite editor.
 
 This sets up a deployment of the minimal jupyter notebook image, with TCP port 8888 opened.
@@ -135,141 +145,156 @@ This sets up a deployment of the minimal jupyter notebook image, with TCP port 8
         targetPort: 8888
     EOF
 
-
 ### <a name = "run">Running the cluster</a>
 
 Create the cluster using kubectl apply.
 
-    $ kubectl apply -f jupyter-deployment.yaml -n jupyter
+    kubectl apply -f jupyter-deployment.yaml -n jupyter
 
 Now let's look at what we've spun up!
 
     $ kubectl describe nodes
     
-    Name:               m01
-    Roles:              master
+    Name:               minikube
+    Roles:              control-plane,master
     Labels:             beta.kubernetes.io/arch=amd64
                         beta.kubernetes.io/os=linux
                         kubernetes.io/arch=amd64
-                        kubernetes.io/hostname=m01
+                        kubernetes.io/hostname=minikube
                         kubernetes.io/os=linux
-                        minikube.k8s.io/commit=eb13446e786c9ef70cb0a9f85a633194e62396a1
+                        minikube.k8s.io/commit=a03fbcf166e6f74ef224d4a63be4277d017bb62e
                         minikube.k8s.io/name=minikube
-                        minikube.k8s.io/updated_at=2020_03_27T12_18_28_0700
-                        minikube.k8s.io/version=v1.8.2
+                        minikube.k8s.io/updated_at=2021_10_01T10_54_33_0700
+                        minikube.k8s.io/version=v1.22.0
+                        node-role.kubernetes.io/control-plane=
                         node-role.kubernetes.io/master=
+                        node.kubernetes.io/exclude-from-external-load-balancers=
     Annotations:        kubeadm.alpha.kubernetes.io/cri-socket: /var/run/dockershim.sock
                         node.alpha.kubernetes.io/ttl: 0
                         volumes.kubernetes.io/controller-managed-attach-detach: true
-    CreationTimestamp:  Fri, 27 Mar 2020 12:18:23 -0500
+    CreationTimestamp:  Fri, 01 Oct 2021 10:54:30 -0500
     Taints:             <none>
     Unschedulable:      false
+    Lease:
+      HolderIdentity:  minikube
+      AcquireTime:     <unset>
+      RenewTime:       Fri, 01 Oct 2021 11:41:09 -0500
     Conditions:
       Type             Status  LastHeartbeatTime                 LastTransitionTime                Reason                       Message
       ----             ------  -----------------                 ------------------                ------                       -------
-      MemoryPressure   False   Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletHasSufficientMemory   kubelet has sufficient memory available
-      DiskPressure     False   Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletHasNoDiskPressure     kubelet has no disk pressure
-      PIDPressure      False   Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletHasSufficientPID      kubelet has sufficient PID available
-      Ready            True    Fri, 27 Mar 2020 12:25:25 -0500   Fri, 27 Mar 2020 12:18:18 -0500   KubeletReady                 kubelet is posting ready status
+      MemoryPressure   False   Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:25 -0500   KubeletHasSufficientMemory   kubelet has sufficient memory available
+      DiskPressure     False   Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:25 -0500   KubeletHasNoDiskPressure     kubelet has no disk pressure
+      PIDPressure      False   Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:25 -0500   KubeletHasSufficientPID      kubelet has sufficient PID available
+      Ready            True    Fri, 01 Oct 2021 11:38:42 -0500   Fri, 01 Oct 2021 10:54:45 -0500   KubeletReady                 kubelet is posting ready status
     Addresses:
-      InternalIP:  192.168.64.15
-      Hostname:    m01
+      InternalIP:  192.168.64.3
+      Hostname:    minikube
     Capacity:
-     cpu:                2
-     ephemeral-storage:  16954224Ki
-     hugepages-2Mi:      0
-     memory:             3936952Ki
-     pods:               110
+      cpu:                2
+      ephemeral-storage:  27388696Ki
+      hugepages-2Mi:      0
+      memory:             8162260Ki
+      pods:               110
     Allocatable:
-     cpu:                2
-     ephemeral-storage:  16954224Ki
-     hugepages-2Mi:      0
-     memory:             3936952Ki
-     pods:               110
+      cpu:                2
+      ephemeral-storage:  27388696Ki
+      hugepages-2Mi:      0
+      memory:             8162260Ki
+      pods:               110
     System Info:
-     Machine ID:                 27a21fe8caeb4a358871f2a486b7d03f
-     System UUID:                d9c711ea-0000-0000-aec7-acde48001122
-     Boot ID:                    e77aea48-8b6f-4638-8c9f-829bcf1b2e55
-     Kernel Version:             4.19.94
-     OS Image:                   Buildroot 2019.02.9
-     Operating System:           linux
-     Architecture:               amd64
-     Container Runtime Version:  docker://19.3.6
-     Kubelet Version:            v1.15.4
-     Kube-Proxy Version:         v1.15.4
-    Non-terminated Pods:         (11 in total)
-      Namespace                  Name                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits
-      ---------                  ----                                          ------------  ----------  ---------------  -------------
-      jupyter                    jupyter-notebook-769b4dd598-x2klz             0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kube-system                coredns-5c98db65d4-92j7g                      100m (5%)     0 (0%)      70Mi (1%)        170Mi (4%)
-      kube-system                coredns-5c98db65d4-kl9kb                      100m (5%)     0 (0%)      70Mi (1%)        170Mi (4%)
-      kube-system                etcd-m01                                      0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-apiserver-m01                            250m (12%)    0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-controller-manager-m01                   200m (10%)    0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-proxy-pf4zx                              0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kube-system                kube-scheduler-m01                            100m (5%)     0 (0%)      0 (0%)           0 (0%)
-      kube-system                storage-provisioner                           0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kubernetes-dashboard       dashboard-metrics-scraper-74c99fbfdf-czsfh    0 (0%)        0 (0%)      0 (0%)           0 (0%)
-      kubernetes-dashboard       kubernetes-dashboard-86d44f77cf-ffbdt         0 (0%)        0 (0%)      0 (0%)           0 (0%)
+      Machine ID:                 985370baef5343a4908a72808a12ff95
+      System UUID:                bcf211ec-0000-0000-a325-acde48001122
+      Boot ID:                    8d693b0c-684f-42be-9e5c-ea7875fa87f7
+      Kernel Version:             4.19.182
+      OS Image:                   Buildroot 2020.02.12
+      Operating System:           linux
+      Architecture:               amd64
+      Container Runtime Version:  docker://20.10.6
+      Kubelet Version:            v1.21.2
+      Kube-Proxy Version:         v1.21.2
+    PodCIDR:                      10.244.0.0/24
+    PodCIDRs:                     10.244.0.0/24
+    Non-terminated Pods:          (11 in total)
+      Namespace                   Name                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits  Age
+      ---------                   ----                                          ------------  ----------  ---------------  -------------  ---
+      ingress-nginx               ingress-nginx-controller-59b45fb494-cfq8j     100m (5%)     0 (0%)      90Mi (1%)        0 (0%)         46m
+      jupyter                     jupyter-notebook-574c695d7c-qfhtt             0 (0%)        0 (0%)      0 (0%)           0 (0%)         8s
+      kube-system                 coredns-558bd4d5db-sqw2z                      100m (5%)     0 (0%)      70Mi (0%)        170Mi (2%)     46m
+      kube-system                 etcd-minikube                                 100m (5%)     0 (0%)      100Mi (1%)       0 (0%)         46m
+      kube-system                 kube-apiserver-minikube                       250m (12%)    0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 kube-controller-manager-minikube              200m (10%)    0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 kube-proxy-bz9v6                              0 (0%)        0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 kube-scheduler-minikube                       100m (5%)     0 (0%)      0 (0%)           0 (0%)         46m
+      kube-system                 storage-provisioner                           0 (0%)        0 (0%)      0 (0%)           0 (0%)         46m
+      kubernetes-dashboard        dashboard-metrics-scraper-7976b667d4-lnq8h    0 (0%)        0 (0%)      0 (0%)           0 (0%)         44m
+      kubernetes-dashboard        kubernetes-dashboard-6fcdf4f6d-2v85q          0 (0%)        0 (0%)      0 (0%)           0 (0%)         44m
     Allocated resources:
       (Total limits may be over 100 percent, i.e., overcommitted.)
-      Resource  Requests    Limits
-      --------  --------    ------
-      cpu       750m (37%)  0 (0%)
-      memory    140Mi (3%)  340Mi (8%)
+      Resource           Requests    Limits
+      --------           --------    ------
+      cpu                850m (42%)  0 (0%)
+      memory             260Mi (3%)  170Mi (2%)
+      ephemeral-storage  0 (0%)      0 (0%)
+      hugepages-2Mi      0 (0%)      0 (0%)
     Events:
-      Type    Reason                   Age                    From             Message
-      ----    ------                   ----                   ----             -------
-      Normal  NodeHasSufficientMemory  7m26s (x8 over 7m26s)  kubelet, m01     Node m01 status is now: NodeHasSufficientMemory
-      Normal  NodeHasNoDiskPressure    7m26s (x7 over 7m26s)  kubelet, m01     Node m01 status is now: NodeHasNoDiskPressure
-      Normal  NodeHasSufficientPID     7m26s (x8 over 7m26s)  kubelet, m01     Node m01 status is now: NodeHasSufficientPID
-      Normal  NodeAllocatableEnforced  7m26s                  kubelet, m01     Updated Node Allocatable limit across pods
-      Normal  Starting                 7m7s                   kube-proxy, m01  Starting kube-proxy.
+      Type    Reason                   Age                From        Message
+      ----    ------                   ----               ----        -------
+      Normal  NodeHasSufficientMemory  46m (x6 over 46m)  kubelet     Node minikube status is now: NodeHasSufficientMemory
+      Normal  NodeHasNoDiskPressure    46m (x6 over 46m)  kubelet     Node minikube status is now: NodeHasNoDiskPressure
+      Normal  NodeHasSufficientPID     46m (x5 over 46m)  kubelet     Node minikube status is now: NodeHasSufficientPID
+      Normal  Starting                 46m                kubelet     Starting kubelet.
+      Normal  NodeHasSufficientMemory  46m                kubelet     Node minikube status is now: NodeHasSufficientMemory
+      Normal  NodeHasNoDiskPressure    46m                kubelet     Node minikube status is now: NodeHasNoDiskPressure
+      Normal  NodeHasSufficientPID     46m                kubelet     Node minikube status is now: NodeHasSufficientPID
+      Normal  NodeAllocatableEnforced  46m                kubelet     Updated Node Allocatable limit across pods
+      Normal  NodeReady                46m                kubelet     Node minikube status is now: NodeReady
+      Normal  Starting                 46m                kube-proxy  Starting kube-proxy.
 
 ### <a name = "endpoint">Endpoint creation</a>
 
 That's great and all, but how do you access it?
 
     $ minikube ip
-    192.168.64.15
-
-  
+    192.168.64.3
 
 #### 404 Not Found
 
-Ruh-roh. This didn't work because the openresty (nginx essentially) service has no idea where to route our request.
+This didn't work because the openresty (nginx essentially) service has no idea where to route our request.
 
     $ kubectl describe services
     
     Name:              kubernetes
     Namespace:         default
     Labels:            component=apiserver
-                       provider=kubernetes
+                      provider=kubernetes
     Annotations:       <none>
     Selector:          <none>
     Type:              ClusterIP
+    IP Family Policy:  SingleStack
+    IP Families:       IPv4
     IP:                10.96.0.1
+    IPs:               10.96.0.1
     Port:              https  443/TCP
     TargetPort:        8443/TCP
-    Endpoints:         192.168.64.15:8443
+    Endpoints:         192.168.64.3:8443
     Session Affinity:  None
     Events:            <none>
-
-  
 
 While there is an endpoint, it has no route. Let's create one. Note that we aren't specifying a host here, so it's the default backend, with all traffic being routed to jupyter-notebook.  [Read more about Ingress to learn how to set up multiple routes.](https://kubernetes.io/docs/concepts/services-networking/ingress/)
 
     $ cat >> jupyter-deployment.yaml<<EOF
     
     ---
-    apiVersion: networking.k8s.io/v1beta1
+    apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
       name: jupyter-ingress
     spec:
-      backend:
-        serviceName: jupyter-notebook
-        servicePort: 8888
+      defaultBackend:
+        service:
+          name: jupyter-notebook
+          port:
+            number: 8888
     EOF
 
 While you could alter the running cluster using kubectl, we're using a declarative method here
@@ -286,41 +311,38 @@ If you don't see an address listed here, it's probably because you didn't start 
 You can add it now with `minikube addons enable ingress` - you may need to delete the ingress service and bring it back to take effect.
 
     $ kubectl get ingress jupyter-ingress -n jupyter
-    NAME              HOSTS   ADDRESS         PORTS   AGE
-    jupyter-ingress   *       192.168.64.15   80      105s
+    NAME              CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-ingress   <none>   *       192.168.64.3   80      65s
   
 The last thing we need to do is get a token - since Jupyter is running Python on your local machine, there is a security risk in that if someone gained access to it (granted, in this instance it isn't available outside of your local machine), they could import os and wreak havoc. As such, Jupyter has a token set by default; you can disable it, or use password authorization, but it's easy enough to get with some commands.
 
-First, we need to get the name of our node, and we can do that with kubectl describe nodes.
-Since we've already looked at that output, let's narrow it down to the node we want.
+First, we need to get the name of our pod, and we can do that with kubectl get pods
 
-    $ kubectl describe nodes | grep jupyter-notebook
-    # Header not shown in terminal, repeated here for clarity
-    Namespace                  Name                                          CPU Requests  CPU Limits  Memory Requests  Memory Limits
-    ---------                  ----                                          ------------  ----------  ---------------  -------------
-    jupyter                    jupyter-notebook-769b4dd598-x2klz             0 (0%)        0 (0%)      0 (0%)           0 (0%)
+    $ kubectl get pods -n jupyter
+    NAME                                READY   STATUS    RESTARTS   AGE
+    jupyter-notebook-65bb4f9f79-52k7c   1/1     Running   0          6m1s
 
-To make things easier, let's assign that node to an environment variable.
+To make things easier, let's assign that pod's name to an environment variable.
 
-    $ export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+
 
 Great, now we need to get a shell into it, which we'll do with kubectl exec.
 
-    $ kubectl exec -n jupyter -it "$JUPYTER_NODE" -- /bin/sh
-    jovyan@jupyter-notebook-769b4dd598-x2klz:~$
+    $ kubectl exec -n jupyter -it "$JUPYTER_POD" -- /bin/sh
+    jovyan@jupyter-notebook-65bb4f9f79-52k7c:~$
 
 Nice! Now let's list the running notebooks.
 
-    jovyan@jupyter-notebook-769b4dd598-x2klz:~$ jupyter notebook list
+    jovyan@jupyter-notebook-65bb4f9f79-52k7c:~$ jupyter notebook list
     Currently running servers:
-    http://0.0.0.0:8888/?token=e950d95d5221b596e7e3c93da7e7a651f43bcb235a92a872 :: /home/jovyan
+    http://0.0.0.0:8888/?token=28323ffc424676dbc34ffc45fb0b85150a05e0a7f92c012c :: /home/jovyan
 
 The only part of this we need is the token, so feel free to copy and paste it along with the previously identified minikube ip, or can we can do a little more CLI work. Note this is back in your host's shell. Also, yes, this could be made less kludgy with awk, but I was having issues using '=' as a field separator when passed into sh -c.
 
-    $ export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    $ export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     $ echo http://"$(minikube ip)?token=$JUPYTER_TOKEN"
-    http://192.168.64.15?token=e950d95d5221b596e7e3c93da7e7a651f43bcb235a92a872
-
+    http://192.168.64.3?token=28323ffc424676dbc34ffc45fb0b85150a05e0a7f92c012c
 ### <a name = "results">Results</a>
 
 Paste the echoed URL into the browser of your choice, and behold the beauty of Jupyter Notebook.
@@ -329,17 +351,15 @@ Paste the echoed URL into the browser of your choice, and behold the beauty of J
 
 What if we wanted more reliability? Simple, scale it up.
 
-  
-
     $ sed -i'' 's/replicas: 1/replicas: 4/' jupyter-deployment.yaml
     $ kubectl apply -f jupyter-deployment.yaml -n jupyter
     
     $ kubectl get pods -o wide -n jupyter
     NAME                                READY   STATUS    RESTARTS   AGE     IP            NODE   NOMINATED NODE   READINESS GATES
-    jupyter-notebook-769b4dd598-ft7b5   1/1     Running   0          23s     172.17.0.10   m01    <none>           <none>
-    jupyter-notebook-769b4dd598-jz6xq   1/1     Running   0          23s     172.17.0.4    m01    <none>           <none>
-    jupyter-notebook-769b4dd598-rbc5j   1/1     Running   0          23s     172.17.0.9    m01    <none>           <none>
-    jupyter-notebook-769b4dd598-zz5lj   1/1     Running   0          8m59s   172.17.0.8    m01    <none>           <none>
+    jupyter-notebook-574c695d7c-5kf9f   1/1     Running   0          8s    172.17.0.7   minikube   <none>           <none>
+    jupyter-notebook-574c695d7c-7msbc   1/1     Running   0          8s    172.17.0.9   minikube   <none>           <none>
+    jupyter-notebook-65bb4f9f79-52k7c   1/1     Running   0          14m   172.17.0.6   minikube   <none>           <none>
+    jupyter-notebook-574c695d7c-z7f8q   1/1     Running   0          8s    172.17.0.8   minikube   <none>           <none>
 
 OK, it's not that simple, because now we have four pods, and only one ingress, so if it went down, we're still hosed. Also, the token-based authentication we used would now fail, as each instance will require its own token. You would want to set up password authentication, or alternately, have the initial GET forward you to an available instance's tokenized URL.
 
@@ -353,7 +373,7 @@ For now, let's get back to a single replica.
     jupyter-notebook-769b4dd598-ft7b5   0/1     Terminating   0          67s     172.17.0.10   m01    <none>           <none>
     jupyter-notebook-769b4dd598-jz6xq   0/1     Terminating   0          67s     172.17.0.4    m01    <none>           <none>
     jupyter-notebook-769b4dd598-rbc5j   0/1     Terminating   0          67s     172.17.0.9    m01    <none>           <none>
-    jupyter-notebook-769b4dd598-zz5lj   1/1     Running       0          9m43s   172.17.0.8    m01    <none>           <none>
+    jupyter-notebook-65bb4f9f79-52k7c   1/1     Running       0          9m43s   172.17.0.8    m01    <none>           <none>
 
 One really nifty thing is that k8s killed the newer replicas, so our original token we set is still valid.
 
@@ -361,18 +381,18 @@ One really nifty thing is that k8s killed the newer replicas, so our original to
 
 All this seems kind of tedious, doesn't it? What if we had a nice package manager like apt or yum (just kidding, yum isn't nice) to do this? We do!
 
-Note that we're using Helm v2, so  [here are the docs for it](https://v2.helm.sh/docs/)  should you need more information.
+[Here are the docs for Helm](https://helm.sh/docs/)  should you need more information.
 
 ### <a name = "helmcreate">File Creation</a>
 
 First, we need a directory
 
-    $ mkdir -p jupyter-minikube/templates
+    mkdir -p jupyter-minikube/templates
+    cd jupyter-minikube
 
 Note you can also use helm create $CHART_NAME to create a skeleton chart, but it may be full of cruft.
 
-WARNING: YAML is _extremely_ sensitive to whitespace. It's highly recommended that
-when writing them for yourself, you use a linter or validation service.
+WARNING: YAML is _extremely_ sensitive to whitespace. It's highly recommended that when writing them for yourself, you use a linter or validation service.
 
     # Chart must be capitalized here
     $ cat > Chart.yaml<<EOF
@@ -387,7 +407,7 @@ You could simply hard-code these in, but that is an anti-pattern.
 You can look up the options to see if you'd prefer something different.
 For example, setting pullPolicy to Always won't cache the image.
 Additionally, in production, it's rarely a good idea to use the latest tag.
-You can also change [CPU and memory limits and requests](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/) here.
+You can also change [CPU and memory limits and requests](https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/) here.
 
     $ cat > values.yaml<<EOF
     replicaCount: 1
@@ -413,9 +433,12 @@ You can also change [CPU and memory limits and requests](https://kubernetes.io/d
 
 Here you can see the extent of the use of our values.yaml.
 This is also the first use of mapping items to a sequence, with containers: - name.
+You'll note that some templated strings are quoted - that's to combined them with normal characters, e.g. giving `labels.chart` the value `.Chart.Name-.Chart.Version`. While Helm will accept their absence, it's not valid YAML. Technically, Helm's docs also state that it's a best practice to quote strings as well, which is done via `{{ quote .Values.foo }}`. You're welcome to try it out.
+
+The use of `metadata.namespace` means that while we don't need to pass `--namespace` into Helm to install into the correct namespace. However, it will override any that _are_ passed in. Finally, if the `--namespace` argument isn't used, Helm will use its default release namespace, resulting in the somewhat confusing mixture of having your deployment existing in Kubernetes namespace `jupyter`, but the release in Helm namespace `default`.
 
     $ cat > templates/deployment.yaml<<EOF
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: {{ .Values.service.name }}
@@ -440,25 +463,28 @@ This is also the first use of mapping items to a sequence, with containers: - na
                 - name: http
                   containerPort: {{ .Values.service.httpPort }}
                   protocol: {{ .Values.service.protocol }}
-          resources:
-            memory: "{{ .Values.service.resources.requests.memory }}"
-            cpu: "{{ .Values.service.resources.requests.cpu }}"
-          limits:
-            memory: "{{ .Values.service.resources.limits.memory }}"
+              resources:
+                requests:
+                  memory: {{ .Values.service.resources.requests.memory }}
+                  cpu: {{ .Values.service.resources.requests.cpu }}
+                limits:
+                  memory: {{ .Values.service.resources.limits.memory }}
     EOF
 
 This is the same ingress as set up before.
 
-    $ cat > templates/ingresss.yaml<<EOF
-    apiVersion: networking.k8s.io/v1beta1
+    $ cat > templates/ingress.yaml<<EOF
+    apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
-      namespace: {{ .Values.service.namespace }}
       name: {{ .Values.service.name }}
+      namespace: {{ .Values.service.namespace }}
     spec:
-      backend:
-        serviceName: {{ .Values.service.name }}
-        servicePort: {{ .Values.service.httpPort }}
+      defaultBackend:
+        service:
+          name: {{ .Values.service.name }}
+          port:
+            number: {{ .Values.service.httpPort }}
     EOF
 
 And this is the same service as before, with some extra labeling.
@@ -485,53 +511,39 @@ NOTES.txt (capitalization important) will be printed as plaintext at the end of 
 It does run through the pre-processor, so you can use templating language as shown here.
 Note that we're accessing the IP address via kubectl get nodes rather than minikube ip.
 While both work, kubectl get nodes is universally acceptable, rather than being limited to minikube.
+Finally, quoting `EOF` is necessary at the beginning to prevent command substitution.
 
-    $ cat > templates/NOTES.txt<<EOF
+    $ cat > templates/NOTES.txt<<'EOF'
     {{ .Chart.Name }} installed successfully.
     
     To access your notebook, run the following commands, and go to the echoed URL:
     
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
     
-    To delete this deployment, run helm delete --purge {{ .Values.service.name }}
+    To delete this deployment, run helm uninstall -n {{ .Values.service.namespace }} {{ .Values.service.name }}
     EOF
 
 ### <a name = "helmdeploy">Deploying Helm Chart</a>
 
-From within the jupyter-minikube directory, init helm.
-If this errors out, you likely didn't create the minikube VM with --kubernetes-version=1.15.4
-
-    $ helm init
-    $HELM_HOME has been configured at $YOUR_PATH/.helm.
-    
-    Tiller (the Helm server-side component) has been installed into your Kubernetes Cluster.
-    
-    Please note: by default, Tiller is deployed with an insecure 'allow unauthenticated users' policy.
-    To prevent this, run `helm init` with the --tiller-tls-verify flag.
-    For more information on securing your installation see: https://docs.helm.sh/using_helm/#securing-your-helm-installation
-    Happy Helming!
-
 First, let's do a dry run to see if everything is as we expect.
 This is essentially creating the YAML files, applying values from values.yaml.
 
-    $ helm install --dry-run --debug --name jupyter-notebook .
-    [debug] Created tunnel using local port: '49452'
-    
-    [debug] SERVER: "127.0.0.1:49452"
-    
-    [debug] Original chart version: ""
-    [debug] CHART PATH: $YOUR_PATH/helm/jupyter-minikube
-    
-    NAME:   jupyter-notebook
+    $ helm install --dry-run --debug jupyter-notebook .
+    install.go:173: [debug] Original chart version: ""
+    install.go:190: [debug] CHART PATH: /Users/sgarland/jupyter-minikube
+
+    NAME: jupyter-notebook
+    LAST DEPLOYED: Fri Oct  1 13:17:09 2021
+    NAMESPACE: default
+    STATUS: pending-install
     REVISION: 1
-    RELEASED: Fri Mar 27 17:13:36 2020
-    CHART: jupyter-minikube-0.1.0
+    TEST SUITE: None
     USER-SUPPLIED VALUES:
     {}
-    
+
     COMPUTED VALUES:
     image:
       pullPolicy: IfNotPresent
@@ -551,10 +563,9 @@ This is essentially creating the YAML files, applying values from values.yaml.
           cpu: "1"
           memory: 1Gi
       type: NodePort
-    
+
     HOOKS:
     MANIFEST:
-    
     ---
     # Source: jupyter-minikube/templates/service.yaml
     apiVersion: v1
@@ -574,7 +585,7 @@ This is essentially creating the YAML files, applying values from values.yaml.
           targetPort: 8888
     ---
     # Source: jupyter-minikube/templates/deployment.yaml
-    apiVersion: apps/v1beta1
+    apiVersion: apps/v1
     kind: Deployment
     metadata:
       name: jupyter-notebook
@@ -599,67 +610,64 @@ This is essentially creating the YAML files, applying values from values.yaml.
                 - name: http
                   containerPort: 8888
                   protocol: TCP
-          resources:
-            memory: "1Gi"
-            cpu: "1"
-          limits:
-            memory: "2Gi"
+              resources:
+                requests:
+                  memory: "1Gi"
+                  cpu: "1"
+                limits:
+                  memory: "2Gi"
     ---
     # Source: jupyter-minikube/templates/ingress.yaml
-    apiVersion: networking.k8s.io/v1beta1
+    apiVersion: networking.k8s.io/v1
     kind: Ingress
     metadata:
       namespace: jupyter
       name: jupyter-notebook
     spec:
-      backend:
-        serviceName: jupyter-notebook
-        servicePort: 8888
+      defaultBackend:
+        service:
+          name: jupyter-notebook
+          port:
+            number: 8888
 
-Looks good, let's install it!
-Note the addition of the namespace here, as it isn't specified in our Chart.
-In Helm v3, this is handled differently, but we're using v2.
-
-    $ helm install --namespace jupyter --name jupyter-notebook .
-    NAME:   jupyter-notebook
-    LAST DEPLOYED: Fri Mar 27 17:16:39 2020
-    NAMESPACE: jupyter
-    STATUS: DEPLOYED
-    
-    RESOURCES:
-    ==> v1/Service
-    NAME              AGE
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Deployment
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Ingress
-    jupyter-notebook  0s
-    
-    ==> v1/Pod(related)
-    
-    NAME                               READY  STATUS             RESTARTS  AGE
-    jupyter-notebook-6dcb864c6c-65cpp  0/1    ContainerCreating  0         0s
-    
-    
     NOTES:
     jupyter-minikube installed successfully.
-    
+
     To access your notebook, run the following commands, and go to the echoed URL:
-    
-    export JUPYTER_IP=$(k get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+
+    export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
-    
-    To delete this deployment, run helm delete --purge jupyter-notebook
+
+    To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
+
+Looks good, let's install it!
+
+    $ helm install jupyter-notebook .
+    NAME: jupyter-notebook
+    LAST DEPLOYED: Fri Oct  1 13:18:42 2021
+    NAMESPACE: jupyter
+    STATUS: deployed
+    REVISION: 1
+    TEST SUITE: None
+    NOTES:
+    jupyter-minikube installed successfully.
+
+    To access your notebook, run the following commands, and go to the echoed URL:
+
+    export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
+
+    To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
 
 Do as the NOTES.txt output says.
 
     $ export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
     http://192.168.64.17?token=285a269b871fc5e3d6d344da815aa059384ba2222a7be0b3
 
@@ -672,50 +680,119 @@ Recall that you need to have specified ingress as an argument to minikube.
 You can also package up your deployment, for easier use by others, pushing to a repo, etc.
 
     $ helm package .
-    Successfully packaged chart and saved it to: $YOUR_PATH/jupyter-minikube/jupyter-minikube-0.1.0.tgz
+    Successfully packaged chart and saved it to: /Users/sgarland/jupyter-minikube/jupyter-minikube-0.1.0.tgz
 
 Installation can also be done from this tarball. Just remember you'll need to repackage if you make any changes.
 
-    $ helm install --namespace jupyter --name jupyter-notebook ./jupyter-minikube-0.1.0.tgz
-    NAME:   jupyter-notebook
-    LAST DEPLOYED: Fri Mar 27 17:49:49 2020
+    $ helm install --namespace jupyter jupyter-notebook ./jupyter-minikube-0.1.0.tgz
+    NAME: jupyter-notebook
+    LAST DEPLOYED: Fri Oct  1 13:20:09 2021
     NAMESPACE: jupyter
-    STATUS: DEPLOYED
-    
-    RESOURCES:
-    ==> v1/Service
-    NAME              AGE
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Deployment
-    jupyter-notebook  0s
-    
-    ==> v1beta1/Ingress
-    jupyter-notebook  0s
-    
-    ==> v1/Pod(related)
-    
-    NAME                               READY  STATUS             RESTARTS  AGE
-    jupyter-notebook-6dcb864c6c-6xgw6  0/1    ContainerCreating  0         0s
-    
-    
+    STATUS: deployed
+    REVISION: 1
+    TEST SUITE: None
     NOTES:
     jupyter-minikube installed successfully.
-    
+
     To access your notebook, run the following commands, and go to the echoed URL:
-    
+
     export JUPYTER_IP=$(kubectl get nodes -n jupyter -o jsonpath="{.items[0].status.addresses[0].address}")
-    export JUPYTER_NODE=$(kubectl describe nodes | grep jupyter-notebook | awk '{print $2}')
-    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_NODE" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
+    export JUPYTER_POD=$(kubectl get pods -n jupyter | awk '/jupyter/ {print $2}')
+    export JUPYTER_TOKEN=$(kubectl exec -n jupyter -it "$JUPYTER_POD" -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2')
     echo http://"$JUPYTER_IP?token=$JUPYTER_TOKEN"
-    
-    To delete this deployment, run helm delete --purge jupyter-notebook 
+
+    To delete this deployment, run helm uninstall -n jupyter jupyter-notebook
+
+## <a name = "Namespaces">Namespaces</a>
+
+This was briefly alluded to, in that we created one and used it. So what are they? Essentially, if you think of Kubernetes as a Hypervisor (it isn't, but stay with me), then Namespaces are like Virtual Machines. Each one is independent, with its own resources, limits, security settings, etc. A common use case for them is to have a test/staging/production setup, so development work can proceed without disrupting production. Or, perhaps you want to give each team a certain amount of cluster resources - again, these can be granularly set.
+
+### <a name = "Using Namespaces">Using Namespaces</a>
+
+Let's create some more namespaces, and deploy to each. First, let's remove our existing Helm release, and the namespace we created.
+
+    $ helm uninstall -n jupyter jupyter-notebook
+    release "jupyter-notebook" deleted
+
+    $ kubectl delete ns jupyter
+    namespace "jupyter" deleted
+
+Now, let's create three jupyter namespaces. This can also be accomplished with the `--create-namespace` argument in Helm.
+
+    $ for i in {0..2}; do kubectl create ns jupyter-$i; done
+    namespace/jupyter-0 created
+    namespace/jupyter-1 created
+    namespace/jupyter-2 created
+
+And comment out the namespace reference in our templates.
+
+    $ sed -Ei 's/(^\s+)(namespace)/\1#\2/ w /dev/stdout' */*.yaml
+      #namespace: {{ .Values.service.namespace }}
+      #namespace: {{ .Values.service.namespace }}
+      #namespace: {{ .Values.service.namespace }}
+
+Then deploy to all of the namespaces.
+
+    # Using the `--create-namespace` argument from above
+    for ns in jupyter-{0..2}; do helm install --namespace "$ns" --create-namespace jupyter .; done
+
+The previous exports will work here, with the exception of getting the token - we'll have to wrap that in a loop to get all of them.
+
+    $ for ns in jupyter-{0..2}; do kubectl exec -n "$ns" -it $(kubectl get pods -n "$ns" -o name) -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2'; done
+    dfbeefd51ad3292cd06d8dd053b85c7522d1a32be02fe558
+    Error from server (NotFound): pods "jupyter-notebook-fb887b49d-6cmsz" not found
+    Error from server (NotFound): pods "jupyter-notebook-fb887b49d-6cmsz" not found
+
+Why did the other two fail? Let's see:
+
+    $ kubectl get events -n jupyter-1
+    LAST SEEN   TYPE      REASON              OBJECT                                  MESSAGE
+    9m13s       Warning   FailedScheduling    pod/jupyter-notebook-fb887b49d-6np57    0/1 nodes are available: 1 Insufficient cpu.
+
+Remember when we created the minikube cluster, we only allocated 2 CPUs (it's the default)? Since our deployment is requesting 1 CPU for each, and Kubernetes needs some for itself, this won't work out. But wait, we could scale the replicas way past 2! Correct, when we didn't have resource requests or limits. Kubernetes has no way of knowing how much CPU the container should or will take without them, and so it doesn't mind giving you more than you should have.
+
+There are at least two ways we could address this. We could scale down the CPU requests (and add a limit for good measure), or we could add resource quotas to the namespaces. Let's bring the requests per deployment down to 0.25, with a limit of 0.5.
+
+    # values.yaml
+    resources:
+      requests:
+        memory: "1Gi"
+        cpu: "0.25"
+      limits:
+        memory: "2Gi"
+        cpu: "0.5"
+
+Now we can deploy, and will be able to get the tokens.
+
+    for ns in jupyter-{0..2}; do kubectl exec -n "$ns" -it $(kubectl get pods -n "$ns" -o name) -- sh -c 'jupyter notebook list | tail -1 | cut -d":" -f3 | cut -d"=" -f2'; done
+    35085d75fb4c537a6b71811a5e5dcc438d252576353626ab
+    207db75150f2ac07073e66b18933d0adb38ebac49980f25f
+    c1456b5fd5eb5ded8fc36189f479378e9844641e87eb0b84
+
+Great, but since we used a NodePort, we only have a single external IP for our ingress.
+
+    $ for ns in jupyter-{0..2}; do kubectl get ingress -n "$ns"; done
+    NAME               CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-notebook   <none>   *       192.168.64.3   80      3m57s
+    NAME               CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-notebook   <none>   *       192.168.64.3   80      3m55s
+    NAME               CLASS    HOSTS   ADDRESS        PORTS   AGE
+    jupyter-notebook   <none>   *       192.168.64.3   80      3m52s
+
+This is where something more extensible would come in, like a Load Balancer, or a Reverse Proxy. Typically, Pods are intended to be ephemeral, so you wouldn't necessarily want to tie a single pod to a given domain name. However, for something like this where a person would want to be able to access their saved Python projects, you would want them (and only them) to be able to access their projects.
+
+## <a name = "Persistent Volumes">Persistent Volumes</a>
+
+Speaking of ephemerality, what happens to your projects when a pod dies? They go away. Less than ideal for this setup!
+
+Kubernetes has the concept of PersistentVolumes (think a partition of a disk) and PersistentVolumeClaims (the system administrator has granted you a quota on that partition). These can be added to a Deployment, but the issue then becomes the correct pod latching onto the correct PVC when it's recreated. Here, StatefulSets make sense. They will be given a specific PVC, and will retain that even if they die and are recreated.
+
 
 ## <a name = "cleanup">Cleanup</a>
 
 If you used helm, run the command given in the NOTES.txt output.
 
-    $ helm delete --purge jupyter-notebook
+    $ helm uninstall -n jupyter jupyter-notebook
     release "jupyter-notebook" deleted
 
 If you didn't use helm, run these commands.
@@ -737,6 +814,6 @@ If you didn't use helm, run these commands.
 
 ## <a name = "final">Final Thoughts</a>
 
-There is much more to k8s than this can touch on. While this uses namespaces, it doesn't really explore them, or discuss switching between them. Additionally, all production k8s apps will be utilizing load balancing, which to my knowledge minikube doesn't support (although perhaps with an nginx or haproxy as the publicly-exposed service, one could manage). I hope this provides enough of a background to get you started, however.
+There is much more to k8s than this can touch on. Exploring Kubernetes' networking models would be highly beneficial, as would RBAC. I hope this provides enough of a background to get you started.
 
 Finally, I highly recommend the  [kubectl plugin](https://github.com/ohmyzsh/ohmyzsh/tree/master/plugins/kubectl)  for oh-my-zsh if you're using zsh, or at least, making some aliases in your .bashrc/.zshrc file. The plugin makes many of these commands much shorter.
